@@ -102,438 +102,530 @@
         </div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const messageOverlay = document.getElementById('messageOverlay');
-        const messageText = document.getElementById('messageText');
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const messageOverlay = document.getElementById('messageOverlay');
+    const messageText = document.getElementById('messageText');
 
-        // --- Game State ---
-        let gameState = 'CHOOSE_PRODUCT';
-        let userChoices = {
+    // --- Game States & Data ---
+    const GAME_STATES = {
+        CHOOSE_PRODUCT: 'CHOOSE_PRODUCT',
+        CREATE_TECH_PACK: 'CREATE_TECH_PACK',
+        CHOOSE_FABRIC: 'CHOOSE_FABRIC',
+        CHOOSE_MANUFACTURER: 'CHOOSE_MANUFACTURER',
+        SAMPLING_LOOP: 'SAMPLING_LOOP',
+        BUI_EXPERIENCE: 'BUI_EXPERIENCE',
+        REVEAL_PERFECT: 'REVEAL_PERFECT'
+    };
+    let gameState = GAME_STATES.CHOOSE_PRODUCT;
+    let userChoices = {};
+    let hoverTarget = null;
+    let animationState = {};
+    let rainbowHue = 0;
+    let clickRegions = {};
+
+    function setRegions(regions) {
+        clickRegions[gameState] = regions;
+    }
+
+    function initializeGame() {
+        userChoices = {
             product: null,
+            techPack: { measurements: false, fabric: false, colors: false, stitching: false },
+            fabricChoice: null,
             manufacturer: null,
+            sampling: { count: 1, cost: 200, time: 4, flaw: null },
+            factoryMismatch: false,
+            missedStitching: false,
+            choseBudgetFabric: false,
         };
-        let hoverTarget = null;
-        let animationState = { x: 0, alpha: 0, complete: false, lootboxItemIndex: 0, frame: 0 };
-        let rainbowHue = 0;
+        animationState = { frame: 0, x: -200, alpha: 0, subState: 0, subFrame: 0 };
+        gameState = GAME_STATES.CHOOSE_PRODUCT;
+    }
 
-        // --- Clickable Regions ---
-        let clickRegions = {};
+    // --- Drawing Assets ---
+    function drawIdealHat(x, y, scale = 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#ff1493'; // Deep Pink
+        ctx.beginPath();
+        ctx.ellipse(100, 100, 100, 25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ff69b4'; // Hot Pink
+        ctx.beginPath();
+        ctx.ellipse(100, 70, 60, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-        function setRegions(regions) {
-            clickRegions[gameState] = regions;
-        }
-
-        // --- Drawing Assets ---
-        function drawIdealHat(x, y, scale = 1) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#ff1493'; // Deep Pink
-            ctx.beginPath();
-            ctx.ellipse(100, 100, 100, 25, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ff69b4'; // Hot Pink
-            ctx.beginPath();
-            ctx.ellipse(100, 70, 60, 40, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
-
-        function drawIdealPants(x, y, scale = 1) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#1e90ff'; // Dodger Blue
-            ctx.fillRect(50, 0, 50, 150);
-            ctx.fillRect(110, 0, 50, 150);
-            ctx.fillRect(50, -10, 110, 20);
-            ctx.restore();
-        }
-
-        function drawIdealTop(x, y, scale = 1) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#32cd32'; // Lime Green
-            ctx.beginPath();
-            ctx.moveTo(50, 0);
-            ctx.lineTo(150, 0);
-            ctx.lineTo(120, 150);
-            ctx.lineTo(80, 150);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
-        
-        const idealProducts = {
-            hat: { draw: drawIdealHat, name: "A Fabulous Hat" },
-            pants: { draw: drawIdealPants, name: "Trendy Pants" },
-            top: { draw: drawIdealTop, name: "A Cute Top" },
-        };
-        
-        function drawFlawedItem(item, x, y, scale = 1){
-            // Simplified flawed item drawing
+        // Glisten animation
+        const glintPosition = (animationState.frame % 200) - 50; // A value from -50 to 150
+        if (glintPosition > 0 && glintPosition < 120) {
+             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
              ctx.save();
-             ctx.translate(x, y);
-             ctx.scale(scale, scale);
-             ctx.globalAlpha = 0.6;
-             ctx.filter = 'grayscale(80%)';
-             idealProducts[item].draw(0,0);
-             ctx.filter = 'none';
-             ctx.globalAlpha = 1;
-
-            // Draw a big red X
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 15;
-            ctx.beginPath();
-            ctx.moveTo(50, 20);
-            ctx.lineTo(150, 130);
-            ctx.moveTo(150, 20);
-            ctx.lineTo(50, 130);
-            ctx.stroke();
-
-            ctx.restore();
+             ctx.rotate(-0.2);
+             ctx.fillRect(glintPosition, 40, 20, 50);
+             ctx.restore();
         }
 
-        function drawManufacturer(x, y, type) {
-            ctx.fillStyle = '#F5DEB3'; // Wheat
-            ctx.beginPath();
-            ctx.arc(x, y, 50, 0, Math.PI * 2);
-            ctx.fill();
+        ctx.restore();
+    }
 
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(x - 20, y - 10, 5, 0, Math.PI * 2);
-            ctx.arc(x + 20, y - 10, 5, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.moveTo(x - 20, y + 20);
-            ctx.lineTo(x + 20, y + 20);
-            ctx.stroke();
-
-            ctx.font = '16px "Press Start 2P"';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#fff';
-            ctx.fillText(type, x, y + 80);
-        }
+    function drawIdealPants(x, y, scale = 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#1e90ff'; // Dodger Blue
         
-        function drawBuiManufacturer(x, y) {
-            // Head
-            ctx.fillStyle = '#F5DEB3';
-            ctx.beginPath();
-            ctx.arc(x, y, 60, 0, Math.PI * 2);
-            ctx.fill();
+        // Left leg
+        ctx.beginPath();
+        ctx.moveTo(50, 0);
+        ctx.lineTo(100, 0);
+        ctx.lineTo(80, 150);
+        ctx.lineTo(30, 150);
+        ctx.closePath();
+        ctx.fill();
 
-            // Eyes (cool sunglasses)
-            ctx.fillStyle = '#000';
-            ctx.fillRect(x - 40, y - 20, 30, 15);
-            ctx.fillRect(x + 10, y - 20, 30, 15);
-            ctx.fillRect(x-10, y-15, 20, 5);
+        // Right leg
+        ctx.beginPath();
+        ctx.moveTo(110, 0);
+        ctx.lineTo(160, 0);
+        ctx.lineTo(180, 150);
+        ctx.lineTo(130, 150);
+        ctx.closePath();
+        ctx.fill();
 
-            // Smile
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+        // Waistband
+        ctx.fillRect(50, -10, 110, 20);
+        ctx.restore();
+    }
+
+    function drawIdealTop(x, y, scale = 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+
+        // Animated shiny gradient
+        const gradient = ctx.createLinearGradient(50, 0, 150, 150);
+        const colorStop1 = (Math.sin(animationState.frame * 0.05) + 1) / 2; // oscillates between 0 and 1
+        gradient.addColorStop(0, '#32cd32');
+        gradient.addColorStop(colorStop1, '#adff2f');
+        gradient.addColorStop(1, '#32cd32');
+
+        ctx.fillStyle = gradient; 
+        ctx.beginPath();
+        ctx.moveTo(50, 0);
+        ctx.lineTo(150, 0);
+        ctx.lineTo(120, 150);
+        ctx.lineTo(80, 150);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+    
+    const idealProducts = {
+        hat: { draw: drawIdealHat, name: "A Fabulous Hat" },
+        pants: { draw: drawIdealPants, name: "Trendy Pants" },
+        top: { draw: drawIdealTop, name: "A Cute Top" },
+    };
+
+    function drawWireframe(product, x, y) {
+        ctx.save();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        if (product === 'hat') {
+            ctx.ellipse(x + 100, y + 100, 100, 25, 0, 0, Math.PI * 2);
+            ctx.ellipse(x + 100, y + 70, 60, 40, 0, 0, Math.PI * 2);
+        } else if (product === 'pants') {
+            ctx.rect(x + 50, y-10 , 110, 20);
+            ctx.moveTo(x + 50, y + 0); ctx.lineTo(x + 30, y + 150); ctx.lineTo(x + 80, y + 150); ctx.lineTo(x + 100, y + 0);
+            ctx.moveTo(x + 110, y + 0); ctx.lineTo(x + 130, y + 150); ctx.lineTo(x + 180, y + 150); ctx.lineTo(x + 160, y + 0);
+        } else { // top
+            ctx.moveTo(x + 50, y + 0); ctx.lineTo(x + 150, y + 0); ctx.lineTo(x + 120, y + 150); ctx.lineTo(x + 80, y + 150); ctx.closePath();
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    // Icons
+    function drawIcons(type, x, y) {
+        ctx.save();
+        ctx.strokeStyle = '#fff';
+        ctx.fillStyle = '#fff';
+        ctx.lineWidth = 2;
+        if(type === 't-shirt'){
             ctx.beginPath();
-            ctx.arc(x, y + 20, 20, 0, Math.PI);
+            ctx.moveTo(x,y); ctx.lineTo(x+30,y); ctx.lineTo(x+25,y+25); ctx.lineTo(x+5,y+25); ctx.closePath();
             ctx.stroke();
-            
-            // Tattoos (simple swirls)
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(x - 40, y + 10);
-            ctx.quadraticCurveTo(x-60, y+30, x-40, y+50);
-            ctx.stroke();
+        } else if(type === 'sweater'){
+            ctx.strokeRect(x,y,30,25); ctx.strokeRect(x+5,y-5,20,5);
+        } else if(type === 'jacket'){
+            ctx.strokeRect(x,y,30,25); ctx.beginPath(); ctx.moveTo(x+15,y); ctx.lineTo(x+15,y-5); ctx.stroke();
+        } else if(type === 'moq-low'){
+            ctx.strokeRect(x,y,20,10);
+        } else if(type === 'moq-medium'){
+            ctx.strokeRect(x,y,20,10); ctx.strokeRect(x,y+12,20,10);
+        } else if(type === 'moq-high'){
+            ctx.strokeRect(x,y,20,10); ctx.strokeRect(x,y+12,20,10); ctx.strokeRect(x,y+24,20,10);
+        }
+        ctx.restore();
+    }
+    
+    // Flaw renderers
+    function drawBadStitching(item, x, y) {
+        drawWireframe(item, x, y);
+        ctx.save();
+        ctx.strokeStyle = 'yellow';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for(let i=0; i < 150; i+=10) {
+            ctx.moveTo(x + 30 + (Math.random() * 5 - 2.5), y + i + (Math.random() * 5 - 2.5));
+            ctx.lineTo(x + 35 + (Math.random() * 5 - 2.5), y + i + 5 + (Math.random() * 5 - 2.5));
+        }
+        ctx.stroke();
+        ctx.restore();
+        drawText("Bad Stitching!", x+100, y + 200, 16, '#ff4d4d');
+    }
+    function drawWrongColor(item, x, y) {
+        ctx.save();
+        ctx.fillStyle = '#8B4513'; // SaddleBrown
+        ctx.globalAlpha = 0.8;
+        if (item === 'hat') { ctx.beginPath(); ctx.ellipse(x+100, y+100, 100, 25, 0, 0, Math.PI*2); ctx.ellipse(x+100, y+70, 60, 40, 0, 0, Math.PI*2); ctx.fill(); }
+        // Add other items if needed
+        ctx.restore();
+        drawWireframe(item, x, y);
+        drawText("Wrong Color!", x+100, y + 200, 16, '#ff4d4d');
+    }
+    function drawBadFit(item, x, y) {
+        ctx.save();
+        ctx.translate(x+100, y+75);
+        ctx.scale(1.4, 0.6); // Stretched and squashed
+        drawWireframe(item, -100, -75);
+        ctx.restore();
+        drawText("Bad Fit!", x+100, y + 200, 16, '#ff4d4d');
+    }
 
-            // Flag
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x + 70, y - 50, 100, 60);
+    // --- State Drawing Functions ---
+    function drawChooseProductScreen() {
+        drawText("First, choose your creation:", canvas.width / 2, 100);
+        
+        const regions = [
+            { id: 'hat', x: 150, y: 300, w: 200, h: 200 },
+            { id: 'pants', x: 500, y: 300, w: 200, h: 200 },
+            { id: 'top', x: 850, y: 300, w: 200, h: 200 },
+        ];
+
+        regions.forEach(region => {
+            ctx.strokeStyle = (hoverTarget === region.id) ? '#ffff00' : '#555';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(region.x - 20, region.y - 20, region.w + 40, region.h + 40);
+            idealProducts[region.id].draw(region.x, region.y);
+            drawText(idealProducts[region.id].name, region.x + region.w / 2, region.y + 250, 16);
+        });
+        setRegions(regions);
+    }
+    function drawCreateTechPackScreen() {
+        drawText("A detailed Tech Pack prevents errors.", canvas.width/2, 100);
+        drawText("Finalize yours.", canvas.width/2, 150, 24, (animationState.frame % 60 < 30) ? '#ffff00' : '#fff');
+        
+        drawWireframe(userChoices.product, canvas.width/2 - 100, 250);
+
+        const buttons = [
+            { id: 'measurements', text: 'Measurements', x: 150, y: 600, w: 250, h: 60 },
+            { id: 'fabric', text: 'Fabric Specs', x: 475, y: 600, w: 250, h: 60 },
+            { id: 'colors', text: 'Color Codes', x: 800, y: 600, w: 250, h: 60 },
+            { id: 'stitching', text: 'Stitching Details', x: 1000, y: 200, w: 180, h: 50 },
+        ];
+        
+        buttons.forEach(b => {
+            const isDone = userChoices.techPack[b.id];
+            drawButton(b.text + (isDone ? ' ✓' : ''), b.x, b.y, b.w, b.h, hoverTarget === b.id, isDone, b.id);
+        });
+
+        if (userChoices.techPack.measurements && userChoices.techPack.fabric && userChoices.techPack.colors) {
+            const sendBtn = { id: 'send', text: 'Send to Factory', x: canvas.width/2 - 200, y: 700, w: 400, h: 70 };
+            drawButton(sendBtn.text, sendBtn.x, sendBtn.y, sendBtn.w, sendBtn.h, hoverTarget === sendBtn.id, false, sendBtn.id);
+            setRegions([...buttons, sendBtn]);
+        } else {
+            setRegions(buttons);
+        }
+    }
+    function drawChooseFabricScreen() {
+        drawText("Choose your fabric:", canvas.width/2, 150);
+        const options = [
+            {id: 'budget', x: 200, y: 300, w: 350, h: 300, title: 'Budget Polyester', price: '$', attr: 'High risk of color bleeding'},
+            {id: 'premium', x: 650, y: 300, w: 350, h: 300, title: 'Premium Supima Cotton', price: '$$$', attr: 'Excellent color retention'}
+        ];
+        options.forEach(o => {
+            ctx.strokeStyle = (hoverTarget === o.id) ? '#ffff00' : '#555';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(o.x, o.y, o.w, o.h);
+            drawText(o.title, o.x + o.w/2, o.y + 70, 16);
+            drawText(o.price, o.x + o.w/2, o.y + 150, 40, '#00ff00');
+            drawText(o.attr, o.x + o.w/2, o.y + 230, 12, '#aaa');
+        });
+        setRegions(options);
+    }
+    function drawManufacturer(x, y, type) {
+        ctx.fillStyle = '#F5DEB3'; // Wheat
+        ctx.beginPath();
+        ctx.arc(x, y, 50, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(x - 20, y - 10, 5, 0, Math.PI * 2);
+        ctx.arc(x + 20, y - 10, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(x - 20, y + 20);
+        ctx.lineTo(x + 20, y + 20);
+        ctx.stroke();
+
+        ctx.font = '16px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(type, x, y + 80);
+    }
+
+    function drawManufacturerScreen() {
+        drawText("Select a factory partner:", canvas.width/2, 100);
+        const manufacturers = [
+            { id: 'china', x: 250, y: 400, name: 'China', cost: '$', spec: 'All-Rounder', specIcon: 't-shirt', moq: 'High', moqIcon: 'moq-high' },
+            { id: 'portugal', x: 600, y: 400, name: 'Portugal', cost: '$$', spec: 'Knitwear & Jersey', specIcon: 'sweater', moq: 'Medium', moqIcon: 'moq-medium' },
+            { id: 'germany', x: 950, y: 400, name: 'Germany', cost: '$$$', spec: 'Technical Apparel', specIcon: 'jacket', moq: 'Low', moqIcon: 'moq-low' }
+        ];
+
+        manufacturers.forEach(m => {
+            drawManufacturer(m.x, m.y, m.name);
+            if (hoverTarget === m.id) {
+                drawText(`Cost: ${m.cost}`, m.x, m.y + 130, 16, '#00ff00');
+                drawText(m.spec, m.x, m.y + 160, 12);
+                drawIcons(m.specIcon, m.x - 15, m.y + 170);
+                drawText(`MOQ: ${m.moq}`, m.x, m.y + 220, 12);
+                drawIcons(m.moqIcon, m.x - 10, m.y + 230);
+            }
+        });
+        setRegions(manufacturers.map(m => ({id: m.id, x: m.x-50, y: m.y-50, w: 100, h:100})));
+    }
+    
+    function drawShippingScreen() {
+        if (userChoices.manufacturer === 'germany') { // Truck
             ctx.fillStyle = '#ffff00';
+            ctx.fillRect(animationState.x, canvas.height/2, 100, 50); // Body
+            ctx.fillRect(animationState.x + 100, canvas.height/2 + 20, 40, 30); // Cab
+            ctx.fillStyle = '#555';
             ctx.beginPath();
-            ctx.moveTo(x + 120, y - 40);
-            ctx.lineTo(x + 130, y - 20);
-            ctx.lineTo(x + 150, y - 20);
-            ctx.lineTo(x + 135, y - 10);
-            ctx.lineTo(x + 140, y + 5);
-            ctx.lineTo(x + 120, y - 5);
-            ctx.lineTo(x + 100, y + 5);
-            ctx.lineTo(x + 105, y - 10);
-            ctx.lineTo(x + 90, y - 20);
-            ctx.lineTo(x + 110, y - 20);
+            ctx.arc(animationState.x + 20, canvas.height/2 + 50, 15, 0, Math.PI * 2);
+            ctx.arc(animationState.x + 90, canvas.height/2 + 50, 15, 0, Math.PI * 2);
+            ctx.fill();
+        } else { // Boat
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.moveTo(animationState.x, canvas.height/2);
+            ctx.lineTo(animationState.x + 200, canvas.height/2);
+            ctx.lineTo(animationState.x + 170, canvas.height/2 + 50);
+            ctx.lineTo(animationState.x + 30, canvas.height/2 + 50);
             ctx.closePath();
             ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(animationState.x + 40, canvas.height/2 - 30, 120, 30);
+        }
+    }
 
-             ctx.font = '16px "Press Start 2P"';
-             ctx.textAlign = 'center';
-             ctx.fillStyle = '#fff';
-             ctx.fillText("Bui Project", x, y + 100);
+    function drawSamplingLoopScreen() {
+        // Sub-states: 0=shipping, 1=revealing
+        if (animationState.subState === 0) { // Shipping
+            drawText("Shipping your sample...", canvas.width/2, 100);
+            drawShippingScreen();
+            animationState.x += 5;
+            if (animationState.x > canvas.width) {
+                 animationState.subState = 1; // Move to reveal
+                 animationState.x = -200;
+            }
+        } else { // Revealing
+            const { count, cost, time, flaw } = userChoices.sampling;
+            drawText(`Sample: #${count} | Cost: $${cost} | Time: ${time} Weeks`, canvas.width/2, 80);
+            drawText("It's wrong! Send feedback and try again?", canvas.width/2, 150, 24, '#ff4d4d');
+
+            if(flaw === 'stitching') drawBadStitching(userChoices.product, canvas.width/2 - 100, 250);
+            else if(flaw === 'color') drawWrongColor(userChoices.product, canvas.width/2 - 100, 250);
+            else drawBadFit(userChoices.product, canvas.width/2 - 100, 250);
+            
+            let btn;
+            if (count >= 2) {
+                btn = { id: 'bui', text: 'There must be a better way...', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
+            } else {
+                btn = { id: 'revise', text: 'Request Revision (-$100, +2 Weeks)', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
+            }
+            drawButton(btn.text, btn.x, btn.y, btn.w, btn.h, hoverTarget === btn.id, false, btn.id);
+            setRegions([btn]);
+        }
+    }
+    function drawBuiExperience() {
+        animationState.subFrame++;
+        const stageDuration = 200;
+        if(animationState.subFrame > stageDuration) {
+            animationState.subState++;
+            animationState.subFrame = 0;
+            animationState.alpha = 0;
         }
 
-        function drawText(text, x, y, size = 32, color = '#fff') {
+        if(animationState.alpha < 1) animationState.alpha += 0.02;
+        ctx.globalAlpha = animationState.alpha;
+
+        if(animationState.subState === 0) { // Tech pack
+            drawText("We perfect your blueprint.", canvas.width/2, 150);
+            drawWireframe(userChoices.product, 300, 300);
+            // Draw bui agent + stamp
+        } else if (animationState.subState === 1) { // Virtual Sample
+            drawText("We sample virtually to get it right, faster.", canvas.width/2, 150);
+            // Draw 3d rotation
+        } else { // On-site QC
+            drawText("Our experts guarantee quality on-site.", canvas.width/2, 150);
+            // Draw factory + agent
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawRevealPerfectScreen() {
+        drawText("The perfect item has arrived!", canvas.width / 2, 200, 30, '#00ff00');
+        idealProducts[userChoices.product].draw(canvas.width / 2 - 100, 300, 1.5);
+    }
+
+    // --- Core Logic ---
+    function determineFlaw() {
+        if (userChoices.missedStitching) return 'stitching';
+        if (userChoices.choseBudgetFabric) return 'color';
+        if (userChoices.factoryMismatch) return 'fit';
+        return ['stitching', 'color', 'fit'][Math.floor(Math.random() * 3)];
+    }
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        animationState.frame++;
+        
+        switch (gameState) {
+            case GAME_STATES.CHOOSE_PRODUCT: drawChooseProductScreen(); break;
+            case GAME_STATES.CREATE_TECH_PACK: drawCreateTechPackScreen(); break;
+            case GAME_STATES.CHOOSE_FABRIC: drawChooseFabricScreen(); break;
+            case GAME_STATES.CHOOSE_MANUFACTURER: drawManufacturerScreen(); break;
+            case GAME_STATES.SAMPLING_LOOP: drawSamplingLoopScreen(); break;
+            case GAME_STATES.BUI_EXPERIENCE: drawBuiExperience(); break;
+            case GAME_STATES.REVEAL_PERFECT: drawRevealPerfectScreen(); break;
+        }
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // --- Event Handlers ---
+    function handleClick(event) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        const regions = clickRegions[gameState] || [];
+        for (const region of regions) {
+            if (mouseX >= region.x && mouseX <= region.x + region.w &&
+                mouseY >= region.y && mouseY <= region.y + region.h) {
+                switch(gameState) {
+                    case GAME_STATES.CHOOSE_PRODUCT:
+                        userChoices.product = region.id;
+                        gameState = GAME_STATES.CREATE_TECH_PACK;
+                        break;
+                    case GAME_STATES.CREATE_TECH_PACK:
+                        if (region.id === 'send') {
+                             if (!userChoices.techPack.stitching) userChoices.missedStitching = true;
+                             gameState = GAME_STATES.CHOOSE_FABRIC;
+                        } else {
+                            userChoices.techPack[region.id] = true;
+                        }
+                        break;
+                    case GAME_STATES.CHOOSE_FABRIC:
+                        userChoices.fabricChoice = region.id;
+                        if(region.id === 'budget') userChoices.choseBudgetFabric = true;
+                        gameState = GAME_STATES.CHOOSE_MANUFACTURER;
+                        break;
+                    case GAME_STATES.CHOOSE_MANUFACTURER:
+                        userChoices.manufacturer = region.id;
+                        if (userChoices.product === 'top' && region.id !== 'portugal') userChoices.factoryMismatch = true;
+                        if (userChoices.product === 'hat' && region.id === 'germany') userChoices.factoryMismatch = true;
+                        if (userChoices.product === 'pants' && region.id === 'portugal') userChoices.factoryMismatch = true;
+                        
+                        userChoices.sampling.flaw = determineFlaw();
+                        animationState.subState = 0; // Start shipping animation
+                        animationState.x = -200;
+                        gameState = GAME_STATES.SAMPLING_LOOP;
+                        break;
+                    case GAME_STATES.SAMPLING_LOOP:
+                         if(region.id === 'revise') {
+                             userChoices.sampling.count++;
+                             userChoices.sampling.cost += 100;
+                             userChoices.sampling.time += 2;
+                             userChoices.sampling.flaw = determineFlaw();
+                             animationState.subState = 0; // Back to shipping
+                             animationState.x = -200;
+                         } else if (region.id === 'bui') {
+                             gameState = GAME_STATES.BUI_EXPERIENCE;
+                             animationState.subState = 0;
+                             animationState.subFrame = 0;
+                             animationState.alpha = 0;
+                             setTimeout(() => {
+                                 gameState = GAME_STATES.REVEAL_PERFECT;
+                                 setTimeout(() => {
+                                     messageOverlay.style.display = 'flex';
+                                     messageText.innerHTML = `The perfect item has arrived. <br><br> <a href="https://buiproject.notion.site/projects-by-bui" target="_blank" class="cta-button">Want to know more?</a>`;
+                                 }, 2000);
+                            }, 4000); // Duration of BUI_EXPERIENCE
+                         }
+                         break;
+                }
+                return;
+            }
+        }
+    }
+    
+    function drawButton(text, x, y, w, h, isHovered, isDone, id = null) {
+        ctx.strokeStyle = '#fff';
+        if(isDone) ctx.fillStyle = '#00ff00';
+        else ctx.fillStyle = isHovered ? '#ffff00' : '#555';
+        ctx.fillRect(x,y,w,h);
+        ctx.strokeRect(x,y,w,h);
+        drawText(text, x + w/2, y + h/2 + 8, id === 'stitching' ? 12 : 16, isHovered || isDone ? '#000' : '#fff');
+    }
+    
+    function drawText(text, x, y, size = 32, color = '#fff') {
             ctx.font = `${size}px "Press Start 2P"`;
             ctx.fillStyle = color;
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             ctx.fillText(text, x, y);
+    }
+    
+    function handleMouseMove(event) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const regions = clickRegions[gameState] || [];
+        hoverTarget = null;
+        canvas.style.cursor = 'default';
+        for (const region of regions) {
+             if (mouseX >= region.x && mouseX <= region.x + region.w &&
+                 mouseY >= region.y && mouseY <= region.y + region.h) {
+                 hoverTarget = region.id;
+                 canvas.style.cursor = 'pointer';
+                 break;
+             }
         }
-        
-        function drawButton(text, x, y, w, h, isHovered = false) {
-            ctx.fillStyle = isHovered ? '#ffff00' : '#fff';
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x,y,w,h);
-            drawText(text, x + w/2, y + h/2 + 8, 20, isHovered ? '#000' : '#fff');
-        }
+    }
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('mousemove', handleMouseMove);
 
-        // --- Game Screens ---
+    initializeGame();
+    gameLoop();
 
-        function drawChooseProductScreen() {
-            drawText("First, choose your creation:", canvas.width / 2, 100);
-            
-            const regions = [
-                { id: 'hat', x: 150, y: 300, w: 200, h: 200 },
-                { id: 'pants', x: 500, y: 300, w: 200, h: 200 },
-                { id: 'top', x: 850, y: 300, w: 200, h: 200 },
-            ];
-
-            regions.forEach(region => {
-                ctx.strokeStyle = (hoverTarget === region.id) ? '#ffff00' : '#555';
-                ctx.lineWidth = 4;
-                ctx.strokeRect(region.x - 20, region.y - 20, region.w + 40, region.h + 40);
-                idealProducts[region.id].draw(region.x, region.y);
-                drawText(idealProducts[region.id].name, region.x + region.w / 2, region.y + 250, 16);
-            });
-            setRegions(regions);
-        }
-
-        function drawManufacturerScreen() {
-            drawText("Next, choose your manufacturer:", canvas.width / 2, 100);
-
-            const regions = [
-                { id: 'china', x: 250, y: 400, w: 100, h: 100 },
-                { id: 'portugal', x: 600, y: 400, w: 100, h: 100 },
-                { id: 'germany', x: 950, y: 400, w: 100, h: 100 },
-            ];
-
-            drawManufacturer(regions[0].x, regions[0].y, "China");
-            drawManufacturer(regions[1].x, regions[1].y, "Portugal");
-            drawManufacturer(regions[2].x, regions[2].y, "Germany");
-            
-            if(hoverTarget === 'china') drawText('$', regions[0].x, regions[0].y + 130, 30, '#00ff00');
-            if(hoverTarget === 'portugal') drawText('$$', regions[1].x, regions[1].y + 130, 30, '#00ff00');
-            if(hoverTarget === 'germany') drawText('$$$', regions[2].x, regions[2].y + 130, 30, '#00ff00');
-            setRegions(regions);
-        }
-        
-        function drawShippingScreen() {
-            drawText("Shipping your sample...", canvas.width/2, 100);
-            
-            if (userChoices.manufacturer === 'germany') { // Truck
-                ctx.fillStyle = '#ffff00';
-                ctx.fillRect(animationState.x, canvas.height/2, 100, 50); // Body
-                ctx.fillRect(animationState.x + 100, canvas.height/2 + 20, 40, 30); // Cab
-                ctx.fillStyle = '#555';
-                ctx.beginPath();
-                ctx.arc(animationState.x + 20, canvas.height/2 + 50, 15, 0, Math.PI * 2);
-                ctx.arc(animationState.x + 90, canvas.height/2 + 50, 15, 0, Math.PI * 2);
-                ctx.fill();
-            } else { // Boat
-                ctx.fillStyle = '#8B4513';
-                ctx.beginPath();
-                ctx.moveTo(animationState.x, canvas.height/2);
-                ctx.lineTo(animationState.x + 200, canvas.height/2);
-                ctx.lineTo(animationState.x + 170, canvas.height/2 + 50);
-                ctx.lineTo(animationState.x + 30, canvas.height/2 + 50);
-                ctx.closePath();
-                ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(animationState.x + 40, canvas.height/2 - 30, 120, 30);
-            }
-            // Animate
-            animationState.x += 5;
-            if (animationState.x > canvas.width) {
-                 gameState = 'REVEAL_FLAWED';
-                 resetAnimation();
-            }
-        }
-        
-        function drawRevealFlawedScreen() {
-            drawText("Oh no... it's not quite right.", canvas.width/2, 150, 30, '#ff4d4d');
-            drawFlawedItem(userChoices.product, canvas.width/2 - 100, 250);
-            
-            const region = { id: 'restart', x: canvas.width/2 - 150, y: 600, w: 300, h: 80 };
-            drawButton("Restart?", region.x, region.y, region.w, region.h, hoverTarget === region.id);
-            setRegions([region]);
-        }
-        
-        function drawRestartScreen() {
-             drawText("There must be a better way...", canvas.width/2, 200);
-             const region = { id: 'bui', x: canvas.width/2 - 250, y: 350, w: 500, h: 120 };
-             
-             // Rainbow button
-             ctx.fillStyle = `hsl(${rainbowHue}, 100%, 60%)`;
-             ctx.strokeStyle = '#fff';
-             ctx.lineWidth = 5;
-             ctx.fillRect(region.x, region.y, region.w, region.h);
-             ctx.strokeRect(region.x, region.y, region.w, region.h);
-             drawText("TRY BUI PROJECT", region.x + region.w/2, region.y + region.h/2 + 10, 30, '#fff');
-             
-             setRegions([region]);
-        }
-        
-        function drawBuiExperience() {
-            animationState.frame++;
-            if (animationState.frame % 30 === 0) {
-                 animationState.lootboxItemIndex = (animationState.lootboxItemIndex + 1) % Object.keys(idealProducts).length;
-            }
-            
-            // Draw Lootbox
-            ctx.fillStyle = `hsl(${rainbowHue}, 100%, 50%)`;
-            ctx.strokeStyle = `hsl(${rainbowHue}, 100%, 80%)`;
-            ctx.fillRect(canvas.width / 2 - 150, 100, 300, 250);
-            ctx.strokeRect(canvas.width / 2 - 150, 100, 300, 250);
-
-            // Draw cycling item
-            const itemKey = Object.keys(idealProducts)[animationState.lootboxItemIndex];
-            idealProducts[itemKey].draw(canvas.width/2 - 100, 150);
-
-            drawBuiManufacturer(canvas.width/2, 550);
-
-            if(animationState.alpha < 1) animationState.alpha += 0.02;
-            
-            ctx.globalAlpha = animationState.alpha;
-            drawText("We can make anything.", canvas.width/2, 400, 20);
-            drawText("Flexible Pricing. Quality Guaranteed.", canvas.width/2, 700, 20);
-            ctx.globalAlpha = 1;
-        }
-        
-        function drawRevealPerfectScreen() {
-            drawText("The perfect item has arrived!", canvas.width / 2, 200, 30, '#00ff00');
-            idealProducts[userChoices.product].draw(canvas.width / 2 - 100, 300, 1.5);
-        }
-
-        // --- Main Loop ---
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            hoverTarget = null;
-            rainbowHue = (rainbowHue + 2) % 360;
-
-            switch (gameState) {
-                case 'CHOOSE_PRODUCT':
-                    drawChooseProductScreen();
-                    break;
-                case 'CHOOSE_MANUFACTURER':
-                    drawManufacturerScreen();
-                    break;
-                case 'SHIPPING_ANIMATION':
-                    drawShippingScreen();
-                    break;
-                case 'REVEAL_FLAWED':
-                    drawRevealFlawedScreen();
-                    break;
-                case 'RESTART_SCREEN':
-                    drawRestartScreen();
-                    break;
-                case 'BUI_EXPERIENCE':
-                     drawBuiExperience();
-                     break;
-                case 'REVEAL_PERFECT':
-                     drawRevealPerfectScreen();
-                     break;
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-        
-        function resetAnimation() {
-            animationState = { x: -200, alpha: 0, complete: false, lootboxItemIndex: 0, frame: 0 };
-        }
-
-        // --- Event Handlers ---
-        function handleMouseMove(event) {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = event.clientX - rect.left;
-            const mouseY = event.clientY - rect.top;
-            
-            const regions = clickRegions[gameState] || [];
-            let foundHover = false;
-            for (const region of regions) {
-                 if (mouseX >= region.x && mouseX <= region.x + region.w &&
-                     mouseY >= region.y && mouseY <= region.y + region.h) {
-                     hoverTarget = region.id;
-                     canvas.style.cursor = 'pointer';
-                     foundHover = true;
-                     break;
-                 }
-            }
-            if(!foundHover) canvas.style.cursor = 'default';
-        }
-
-        function handleClick(event) {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = event.clientX - rect.left;
-            const mouseY = event.clientY - rect.top;
-
-            const regions = clickRegions[gameState] || [];
-            for (const region of regions) {
-                if (mouseX >= region.x && mouseX <= region.x + region.w &&
-                    mouseY >= region.y && mouseY <= region.y + region.h) {
-                    
-                    // --- State Transitions based on Clicks ---
-                    switch(gameState) {
-                        case 'CHOOSE_PRODUCT':
-                            userChoices.product = region.id;
-                            gameState = 'CHOOSE_MANUFACTURER';
-                            break;
-                        case 'CHOOSE_MANUFACTURER':
-                             userChoices.manufacturer = region.id;
-                             gameState = 'SHIPPING_ANIMATION';
-                             resetAnimation();
-                             break;
-                        case 'REVEAL_FLAWED':
-                            if (region.id === 'restart') {
-                                gameState = 'RESTART_SCREEN';
-                            }
-                            break;
-                        case 'RESTART_SCREEN':
-                            if (region.id === 'bui') {
-                                gameState = 'BUI_EXPERIENCE';
-                                resetAnimation();
-                                setTimeout(() => {
-                                    gameState = 'REVEAL_PERFECT';
-                                    setTimeout(() => {
-                                        messageOverlay.style.display = 'flex';
-                                        messageText.innerHTML = `The perfect item has arrived. <br><br> <a href="https://buiproject.notion.site/projects-by-bui" target="_blank" class="cta-button">Want to know more?</a>`;
-                                    }, 2000);
-                                }, 4000);
-                            }
-                            break;
-                    }
-                    return; // Exit after one click is processed
-                }
-            }
-        }
-        
-        function restartGame() {
-            messageOverlay.style.display = 'none';
-            userChoices = { product: null, manufacturer: null };
-            gameState = 'CHOOSE_PRODUCT';
-            resetAnimation();
-        }
-
-        // --- Initialization ---
-        canvas.addEventListener('click', handleClick);
-        canvas.addEventListener('mousemove', handleMouseMove);
-        messageOverlay.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'A') {
-                restartGame();
-            }
-        });
-        
-        gameLoop();
-    </script>
+</script>
 
 </body>
 </html>
