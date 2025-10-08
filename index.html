@@ -63,15 +63,22 @@
             max-width: 90%;
         }
 
+        .cta-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
         .cta-button {
             display: inline-block;
             background-color: #ffff00;
             color: #1a1a1a;
-            padding: 20px 40px;
-            margin-top: 30px;
+            padding: 15px 30px;
+            margin: 15px;
             border-radius: 5px;
             text-decoration: none;
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             text-shadow: none;
             border: 3px solid #1a1a1a;
             box-shadow: 5px 5px 0px #ff00ff;
@@ -115,7 +122,7 @@
         CHOOSE_FABRIC: 'CHOOSE_FABRIC',
         CHOOSE_MANUFACTURER: 'CHOOSE_MANUFACTURER',
         SAMPLING_LOOP: 'SAMPLING_LOOP',
-        BUI_EXPERIENCE: 'BUI_EXPERIENCE',
+        SHOW_EMAIL_TEXT: 'SHOW_EMAIL_TEXT',
         REVEAL_PERFECT: 'REVEAL_PERFECT'
     };
     let gameState = GAME_STATES.CHOOSE_PRODUCT;
@@ -124,6 +131,20 @@
     let animationState = {};
     let rainbowHue = 0;
     let clickRegions = {};
+    let emailTextLines = [];
+    
+    const emailText = `Hey Leon,
+
+Mein Kollege Leo hat dich bereits kontaktiert bezüglich potenzieller Diversifikation eurer Produktionsstätten. Habt ihr schon über die Produktion in Vietnam nachgedacht? Ich gehe davon aus, ihr produziert primär in China und habt keinen internen Kontakt in China?
+
+Ich als Designer habe einen Sample Room in Saigon City und zusätzlich unterstützen wir Brands, die in Vietnam produzieren wollen. Heißt, wir übernehmen die Kommunikation mit Produktionsstätten, handhaben Sampling bis zur fertigen Produktion und den Transport zu euch.
+
+Vorteil ist transparente Kommunikation von Produktionsabläufen, Verständnis von komplizierten Designs, frühe Erkennung von Produktionsfehlern und eine smoothere Samplingphase, da wir vor Ort direkt mit großen und kleinen Manufakturen arbeiten.
+
+Da wir agil arbeiten und ein riesiges Netzwerk in Vietnam haben, können wir bereits sehr kleine Mengen sowie Einzelstücke in vergleichbar kurzer Zeit und zu lokalen Preisen anfertigen lassen. Natürlich kommt es auf das spezifische Produkt an.
+
+Falls das interessant für euch ist, können wir uns gerne über Produktion austauschen.`;
+
 
     function setRegions(regions) {
         clickRegions[gameState] = regions;
@@ -140,7 +161,7 @@
             missedStitching: false,
             choseBudgetFabric: false,
         };
-        animationState = { frame: 0, x: -200, alpha: 0, subState: 0, subFrame: 0 };
+        animationState = { frame: 0, x: -200, alpha: 0, subState: 0, subFrame: 0, textScrollY: 0, maxScrollY: 0 };
         gameState = GAME_STATES.CHOOSE_PRODUCT;
     }
 
@@ -229,20 +250,22 @@
         top: { draw: drawIdealTop, name: "A Cute Top" },
     };
 
-    function drawWireframe(product, x, y) {
+    function drawWireframe(product, x, y, scale = 1) {
         ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
         ctx.beginPath();
         if (product === 'hat') {
-            ctx.ellipse(x + 100, y + 100, 100, 25, 0, 0, Math.PI * 2);
-            ctx.ellipse(x + 100, y + 70, 60, 40, 0, 0, Math.PI * 2);
+            ctx.ellipse(100, 100, 100, 25, 0, 0, Math.PI * 2);
+            ctx.ellipse(100, 70, 60, 40, 0, 0, Math.PI * 2);
         } else if (product === 'pants') {
-            ctx.rect(x + 50, y-10 , 110, 20);
-            ctx.moveTo(x + 50, y + 0); ctx.lineTo(x + 30, y + 150); ctx.lineTo(x + 80, y + 150); ctx.lineTo(x + 100, y + 0);
-            ctx.moveTo(x + 110, y + 0); ctx.lineTo(x + 130, y + 150); ctx.lineTo(x + 180, y + 150); ctx.lineTo(x + 160, y + 0);
+            ctx.rect(50, -10 , 110, 20);
+            ctx.moveTo(50, 0); ctx.lineTo(30, 150); ctx.lineTo(80, 150); ctx.lineTo(100, 0);
+            ctx.moveTo(110, 0); ctx.lineTo(130, 150); ctx.lineTo(180, 150); ctx.lineTo(160, 0);
         } else { // top
-            ctx.moveTo(x + 50, y + 0); ctx.lineTo(x + 150, y + 0); ctx.lineTo(x + 120, y + 150); ctx.lineTo(x + 80, y + 150); ctx.closePath();
+            ctx.moveTo(50, 0); ctx.lineTo(150, 0); ctx.lineTo(120, 150); ctx.lineTo(80, 150); ctx.closePath();
         }
         ctx.stroke();
         ctx.restore();
@@ -276,35 +299,87 @@
     function drawBadStitching(item, x, y) {
         drawWireframe(item, x, y);
         ctx.save();
-        ctx.strokeStyle = 'yellow';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for(let i=0; i < 150; i+=10) {
-            ctx.moveTo(x + 30 + (Math.random() * 5 - 2.5), y + i + (Math.random() * 5 - 2.5));
-            ctx.lineTo(x + 35 + (Math.random() * 5 - 2.5), y + i + 5 + (Math.random() * 5 - 2.5));
+        
+        const needleX = x + (animationState.frame % 150);
+        const needleY = y + 50;
+        
+        ctx.strokeStyle = '#c0c0c0'; // Silver
+        ctx.lineWidth = 4;
+
+        if (needleX > x + 100) { // Break point
+            // Broken needle
+            ctx.beginPath();
+            ctx.moveTo(x + 100, needleY - 10);
+            ctx.lineTo(x + 95, needleY + 5);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x + 105, needleY - 5);
+            ctx.lineTo(x + 100, needleY + 10);
+            ctx.stroke();
+        } else {
+            // Intact needle
+            ctx.beginPath();
+            ctx.moveTo(needleX, needleY - 10);
+            ctx.lineTo(needleX - 5, needleY + 10);
+            ctx.stroke();
         }
-        ctx.stroke();
+
         ctx.restore();
-        drawText("Bad Stitching!", x+100, y + 200, 16, '#ff4d4d');
+        drawText("Bad Stitching!", x + 100, y + 200, 16, '#ff4d4d');
     }
+
     function drawWrongColor(item, x, y) {
         ctx.save();
         ctx.fillStyle = '#8B4513'; // SaddleBrown
         ctx.globalAlpha = 0.8;
         if (item === 'hat') { ctx.beginPath(); ctx.ellipse(x+100, y+100, 100, 25, 0, 0, Math.PI*2); ctx.ellipse(x+100, y+70, 60, 40, 0, 0, Math.PI*2); ctx.fill(); }
-        // Add other items if needed
+        else if (item === 'pants') {
+             ctx.beginPath();
+            ctx.moveTo(x+50, y+0); ctx.lineTo(x+100, y+0); ctx.lineTo(x+80, y+150); ctx.lineTo(x+30, y+150); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x+110, y+0); ctx.lineTo(x+160, y+0); ctx.lineTo(x+180, y+150); ctx.lineTo(x+130, y+150); ctx.closePath(); ctx.fill();
+        } else {
+            ctx.beginPath(); ctx.moveTo(x+50, y+0); ctx.lineTo(x+150, y+0); ctx.lineTo(x+120, y+150); ctx.lineTo(x+80, y+150); ctx.closePath(); ctx.fill();
+        }
         ctx.restore();
         drawWireframe(item, x, y);
         drawText("Wrong Color!", x+100, y + 200, 16, '#ff4d4d');
     }
-    function drawBadFit(item, x, y) {
-        ctx.save();
-        ctx.translate(x+100, y+75);
-        ctx.scale(1.4, 0.6); // Stretched and squashed
-        drawWireframe(item, -100, -75);
-        ctx.restore();
-        drawText("Bad Fit!", x+100, y + 200, 16, '#ff4d4d');
+
+    function drawWrongSize(item, x, y) {
+        drawWireframe(item, x + 50, y + 50, 0.5); // Draw at half size
+        drawText("Wrong Size!", x + 100, y + 200, 16, '#ff4d4d');
     }
+
+    function drawChemicalSmell(item, x, y) {
+        drawWireframe(item, x, y);
+        ctx.save();
+        ctx.fillStyle = 'rgba(152, 251, 152, 0.6)'; // PaleGreen
+        for (let i = 0; i < 5; i++) {
+            const sx = x + 50 + (i * 20);
+            const sy = y + 80 - (animationState.frame % 100);
+            const wave = Math.sin((animationState.frame + i*20) * 0.1) * 10;
+            ctx.beginPath();
+            ctx.arc(sx + wave, sy, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+        drawText("Chemical Smell!", x+100, y + 200, 16, '#ff4d4d');
+    }
+
+    function drawFuzzies(item, x, y) {
+        drawWireframe(item, x, y);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        for (let i=0; i < 40; i++) {
+             ctx.beginPath();
+             ctx.arc(x + Math.random() * 200, y + Math.random() * 150, 2, 0, Math.PI * 2);
+             ctx.fill();
+        }
+        ctx.restore();
+        drawText("Fuzzies All Over!", x+100, y + 200, 16, '#ff4d4d');
+    }
+
 
     // --- State Drawing Functions ---
     function drawChooseProductScreen() {
@@ -367,27 +442,54 @@
         });
         setRegions(options);
     }
-    function drawManufacturer(x, y, type) {
+    function drawManufacturer(x, y, m) {
+        // Flag
+        ctx.save();
+        if (m.id === 'china') {
+            ctx.fillStyle = '#de2910';
+            ctx.fillRect(x - 40, y - 90, 80, 50);
+            ctx.fillStyle = '#ffde00';
+            ctx.beginPath();
+            ctx.arc(x - 25, y - 75, 5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (m.id === 'portugal') {
+            ctx.fillStyle = '#006600';
+            ctx.fillRect(x - 40, y - 90, 32, 50);
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x - 8, y - 90, 48, 50);
+        } else if (m.id === 'germany') {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x - 40, y - 90, 80, 17);
+            ctx.fillStyle = '#dd0000';
+            ctx.fillRect(x - 40, y - 73, 80, 17);
+            ctx.fillStyle = '#ffce00';
+            ctx.fillRect(x - 40, y - 56, 80, 17);
+        }
+        ctx.restore();
+
+
+        // Head
         ctx.fillStyle = '#F5DEB3'; // Wheat
         ctx.beginPath();
         ctx.arc(x, y, 50, 0, Math.PI * 2);
         ctx.fill();
 
+        // Eyes
         ctx.fillStyle = '#000';
         ctx.beginPath();
         ctx.arc(x - 20, y - 10, 5, 0, Math.PI * 2);
         ctx.arc(x + 20, y - 10, 5, 0, Math.PI * 2);
         ctx.fill();
 
+        // Smile
         ctx.beginPath();
-        ctx.moveTo(x - 20, y + 20);
-        ctx.lineTo(x + 20, y + 20);
+        ctx.arc(x, y + 10, 25, 0.2 * Math.PI, 0.8 * Math.PI);
         ctx.stroke();
 
         ctx.font = '16px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fff';
-        ctx.fillText(type, x, y + 80);
+        ctx.fillText(m.name, x, y + 80);
     }
 
     function drawManufacturerScreen() {
@@ -399,7 +501,7 @@
         ];
 
         manufacturers.forEach(m => {
-            drawManufacturer(m.x, m.y, m.name);
+            drawManufacturer(m.x, m.y, m);
             if (hoverTarget === m.id) {
                 drawText(`Cost: ${m.cost}`, m.x, m.y + 130, 16, '#00ff00');
                 drawText(m.spec, m.x, m.y + 160, 12);
@@ -421,6 +523,17 @@
             ctx.arc(animationState.x + 20, canvas.height/2 + 50, 15, 0, Math.PI * 2);
             ctx.arc(animationState.x + 90, canvas.height/2 + 50, 15, 0, Math.PI * 2);
             ctx.fill();
+        } else if (userChoices.manufacturer === 'portugal') { // Plane
+            ctx.fillStyle = '#c0c0c0'; // Silver
+            ctx.beginPath();
+            ctx.moveTo(animationState.x, canvas.height / 2 + 10);
+            ctx.lineTo(animationState.x + 150, canvas.height / 2 + 10);
+            ctx.lineTo(animationState.x + 180, canvas.height / 2);
+            ctx.lineTo(animationState.x, canvas.height / 2);
+            ctx.closePath();
+            ctx.fill();
+            // Wings
+            ctx.fillRect(animationState.x + 50, canvas.height / 2 - 20, 20, 50);
         } else { // Boat
             ctx.fillStyle = '#8B4513';
             ctx.beginPath();
@@ -448,46 +561,70 @@
         } else { // Revealing
             const { count, cost, time, flaw } = userChoices.sampling;
             drawText(`Sample: #${count} | Cost: $${cost} | Time: ${time} Weeks`, canvas.width/2, 80);
-            drawText("It's wrong! Send feedback and try again?", canvas.width/2, 150, 24, '#ff4d4d');
+            drawText("It's wrong! What will you do?", canvas.width/2, 150, 24, '#ff4d4d');
 
-            if(flaw === 'stitching') drawBadStitching(userChoices.product, canvas.width/2 - 100, 250);
-            else if(flaw === 'color') drawWrongColor(userChoices.product, canvas.width/2 - 100, 250);
-            else drawBadFit(userChoices.product, canvas.width/2 - 100, 250);
+            const itemX = canvas.width/2 - 100;
+            const itemY = 250;
+            if (flaw === 'stitching') drawBadStitching(userChoices.product, itemX, itemY);
+            else if (flaw === 'color') drawWrongColor(userChoices.product, itemX, itemY);
+            else if (flaw === 'size') drawWrongSize(userChoices.product, itemX, itemY);
+            else if (flaw === 'smell') drawChemicalSmell(userChoices.product, itemX, itemY);
+            else if (flaw === 'fuzzies') drawFuzzies(userChoices.product, itemX, itemY);
             
-            let btn;
-            if (count >= 2) {
-                btn = { id: 'bui', text: 'There must be a better way...', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
+            if (count === 1) {
+                const btnRevise = { id: 'revise', text: 'Request another revision (+2 Weeks)', x: canvas.width/2 - 300, y: 550, w: 600, h: 80};
+                const btnBui = { id: 'bui', text: 'There must be a better way...', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
+                drawButton(btnRevise.text, btnRevise.x, btnRevise.y, btnRevise.w, btnRevise.h, hoverTarget === btnRevise.id, false, btnRevise.id);
+                drawButton(btnBui.text, btnBui.x, btnBui.y, btnBui.w, btnBui.h, hoverTarget === btnBui.id, false, btnBui.id);
+                setRegions([btnRevise, btnBui]);
             } else {
-                btn = { id: 'revise', text: 'Request Revision (-$100, +2 Weeks)', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
+                const btnBui = { id: 'bui', text: 'There must be a better way...', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
+                drawButton(btnBui.text, btnBui.x, btnBui.y, btnBui.w, btnBui.h, hoverTarget === btnBui.id, false, btnBui.id);
+                setRegions([btnBui]);
             }
-            drawButton(btn.text, btn.x, btn.y, btn.w, btn.h, hoverTarget === btn.id, false, btn.id);
-            setRegions([btn]);
         }
     }
-    function drawBuiExperience() {
-        animationState.subFrame++;
-        const stageDuration = 200;
-        if(animationState.subFrame > stageDuration) {
-            animationState.subState++;
-            animationState.subFrame = 0;
-            animationState.alpha = 0;
-        }
+    
+    function drawShowEmailTextScreen() {
+        const textX = 150;
+        const textY = 100;
+        const textW = canvas.width - 300;
+        const textH = canvas.height - 200;
+        const lineHeight = 25;
 
-        if(animationState.alpha < 1) animationState.alpha += 0.02;
-        ctx.globalAlpha = animationState.alpha;
+        // Draw background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(textX - 20, textY - 20, textW + 40, textH + 40);
+        ctx.strokeStyle = '#ffff00';
+        ctx.strokeRect(textX - 20, textY - 20, textW + 40, textH + 40);
 
-        if(animationState.subState === 0) { // Tech pack
-            drawText("We perfect your blueprint.", canvas.width/2, 150);
-            drawWireframe(userChoices.product, 300, 300);
-            // Draw bui agent + stamp
-        } else if (animationState.subState === 1) { // Virtual Sample
-            drawText("We sample virtually to get it right, faster.", canvas.width/2, 150);
-            // Draw 3d rotation
-        } else { // On-site QC
-            drawText("Our experts guarantee quality on-site.", canvas.width/2, 150);
-            // Draw factory + agent
+        ctx.save();
+        ctx.rect(textX, textY, textW, textH);
+        ctx.clip();
+
+        // Draw text
+        ctx.font = `14px "Press Start 2P"`;
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        for(let i=0; i < emailTextLines.length; i++) {
+            const lineY = textY + (i * lineHeight) - animationState.textScrollY;
+            if(lineY > textY - lineHeight && lineY < textY + textH + lineHeight) {
+                ctx.fillText(emailTextLines[i], textX + 10, lineY);
+            }
         }
-        ctx.globalAlpha = 1;
+        ctx.restore();
+        
+        // Scroll prompt
+        drawText("Use Mouse Wheel to Scroll", canvas.width / 2, textY + textH + 50, 16, '#888');
+
+        // Check if scrolled to bottom
+        if (animationState.textScrollY >= animationState.maxScrollY - 5) { // -5 for buffer
+            const btnPoint = { id: 'point', text: 'You have a point...', x: canvas.width/2 - 250, y: 720, w: 500, h: 60};
+            drawButton(btnPoint.text, btnPoint.x, btnPoint.y, btnPoint.w, btnPoint.h, hoverTarget === btnPoint.id, false, btnPoint.id);
+            setRegions([btnPoint]);
+        } else {
+            setRegions([]); // No buttons if not at the bottom
+        }
     }
 
     function drawRevealPerfectScreen() {
@@ -499,8 +636,37 @@
     function determineFlaw() {
         if (userChoices.missedStitching) return 'stitching';
         if (userChoices.choseBudgetFabric) return 'color';
-        if (userChoices.factoryMismatch) return 'fit';
-        return ['stitching', 'color', 'fit'][Math.floor(Math.random() * 3)];
+        if (userChoices.factoryMismatch) return 'size'; // Changed from 'fit' to 'size'
+        const randomFlaws = ['stitching', 'color', 'size', 'smell', 'fuzzies'];
+        return randomFlaws[Math.floor(Math.random() * randomFlaws.length)];
+    }
+
+    // Text wrapping utility
+    function wrapText(text, maxWidth) {
+        const paragraphs = text.split('\n');
+        const lines = [];
+        ctx.font = `14px "Press Start 2P"`;
+
+        paragraphs.forEach(p => {
+            if (p === '') {
+                lines.push('');
+                return;
+            }
+            const words = p.split(' ');
+            let currentLine = words[0];
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const width = ctx.measureText(currentLine + " " + word).width;
+                if (width < maxWidth) {
+                    currentLine += " " + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+        });
+        return lines;
     }
 
     function gameLoop() {
@@ -513,7 +679,7 @@
             case GAME_STATES.CHOOSE_FABRIC: drawChooseFabricScreen(); break;
             case GAME_STATES.CHOOSE_MANUFACTURER: drawManufacturerScreen(); break;
             case GAME_STATES.SAMPLING_LOOP: drawSamplingLoopScreen(); break;
-            case GAME_STATES.BUI_EXPERIENCE: drawBuiExperience(); break;
+            case GAME_STATES.SHOW_EMAIL_TEXT: drawShowEmailTextScreen(); break;
             case GAME_STATES.REVEAL_PERFECT: drawRevealPerfectScreen(); break;
         }
         requestAnimationFrame(gameLoop);
@@ -561,28 +727,47 @@
                     case GAME_STATES.SAMPLING_LOOP:
                          if(region.id === 'revise') {
                              userChoices.sampling.count++;
-                             userChoices.sampling.cost += 100;
                              userChoices.sampling.time += 2;
                              userChoices.sampling.flaw = determineFlaw();
                              animationState.subState = 0; // Back to shipping
                              animationState.x = -200;
                          } else if (region.id === 'bui') {
-                             gameState = GAME_STATES.BUI_EXPERIENCE;
-                             animationState.subState = 0;
-                             animationState.subFrame = 0;
-                             animationState.alpha = 0;
-                             setTimeout(() => {
-                                 gameState = GAME_STATES.REVEAL_PERFECT;
-                                 setTimeout(() => {
-                                     messageOverlay.style.display = 'flex';
-                                     messageText.innerHTML = `The perfect item has arrived. <br><br> <a href="https://buiproject.notion.site/projects-by-bui" target="_blank" class="cta-button">Want to know more?</a>`;
-                                 }, 2000);
-                            }, 4000); // Duration of BUI_EXPERIENCE
+                             gameState = GAME_STATES.SHOW_EMAIL_TEXT;
+                             animationState.textScrollY = 0;
+                             // Pre-calculate wrapped text and max scroll
+                             emailTextLines = wrapText(emailText, canvas.width - 320);
+                             const totalTextHeight = emailTextLines.length * 25; // 25 is line height
+                             const visibleHeight = canvas.height - 200;
+                             animationState.maxScrollY = Math.max(0, totalTextHeight - visibleHeight);
                          }
                          break;
+                    case GAME_STATES.SHOW_EMAIL_TEXT:
+                        if (region.id === 'point') {
+                             gameState = GAME_STATES.REVEAL_PERFECT;
+                             setTimeout(() => {
+                                 messageOverlay.style.display = 'flex';
+                                 messageText.innerHTML = `The perfect item has arrived.
+                                 <div class="cta-container">
+                                    <a href="https://buiproject.notion.site/projects-by-bui" target="_blank" class="cta-button">Want to see more?</a>
+                                    <a href="https://www.notion.so/buiproject/BUI-Production-Q-A-Guiding-the-Conversation-280972fdd7d78051a4fec8a689404dc5?source=copy_link" target="_blank" class="cta-button">Want to know more (professionally)?</a>
+                                    <a href="https://calendar.app.google/ViFSYWDaHVhr78wg6" target="_blank" class="cta-button">Want to know more (personally)?</a>
+                                 </div>`;
+                             }, 2000);
+                        }
+                        break;
                 }
                 return;
             }
+        }
+    }
+    
+    function handleWheel(event) {
+        if(gameState === GAME_STATES.SHOW_EMAIL_TEXT) {
+            event.preventDefault();
+            animationState.textScrollY += event.deltaY * 0.5;
+            // Clamp scroll
+            if(animationState.textScrollY < 0) animationState.textScrollY = 0;
+            if(animationState.textScrollY > animationState.maxScrollY) animationState.textScrollY = animationState.maxScrollY;
         }
     }
     
@@ -592,7 +777,7 @@
         else ctx.fillStyle = isHovered ? '#ffff00' : '#555';
         ctx.fillRect(x,y,w,h);
         ctx.strokeRect(x,y,w,h);
-        drawText(text, x + w/2, y + h/2 + 8, id === 'stitching' ? 12 : 16, isHovered || isDone ? '#000' : '#fff');
+        drawText(text, x + w/2, y + h/2 + 4, id === 'stitching' ? 12 : 16, isHovered || isDone ? '#000' : '#fff');
     }
     
     function drawText(text, x, y, size = 32, color = '#fff') {
@@ -621,6 +806,7 @@
     }
     canvas.addEventListener('click', handleClick);
     canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('wheel', handleWheel);
 
     initializeGame();
     gameLoop();
@@ -629,4 +815,5 @@
 
 </body>
 </html>
+
 
