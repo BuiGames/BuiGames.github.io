@@ -31,7 +31,7 @@
         }
 
         h1 {
-            font-size: 2rem;
+            font-size: 2.5rem;
             color: #ffff00;
             text-shadow: 3px 3px 0px #ff00ff;
             margin-bottom: 20px;
@@ -101,7 +101,7 @@
 
     <h1>PACKAGE PICKER</h1>
     <div class="game-container">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <canvas id="gameCanvas" width="1000" height="750"></canvas>
         <div id="messageOverlay" class="message-overlay">
             <div id="messageText" class="final-message"></div>
         </div>
@@ -115,12 +115,11 @@
 
         const BOX_COLOR = '#8B4513';
         const BOX_TAPE_COLOR = '#A0522D';
-        const BUI_BOX_COLOR = '#A55D35';
 
         // --- Game State ---
         let boxes = [];
-        let revealedItem = null;
         let buiRevealed = false;
+        let rainbowHue = 0;
 
         // --- Game Objects ---
         const clothingItems = [
@@ -145,9 +144,12 @@
 
         // --- Drawing Functions ---
         function drawBox(box) {
-            // Main box
-            ctx.fillStyle = box.isBui ? BUI_BOX_COLOR : BOX_COLOR;
-            ctx.fillRect(box.x, box.y, box.width, box.height);
+            let mainColor = BOX_COLOR;
+            let topColor = '#9c5a2c';
+            if (box.isBui) {
+                mainColor = `hsl(${rainbowHue}, 100%, 60%)`;
+                topColor = `hsl(${rainbowHue}, 100%, 70%)`;
+            }
 
             // Shading for 3D effect
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
@@ -164,50 +166,79 @@
             ctx.lineTo(box.x + box.width + 15, box.y + box.height - 15);
             ctx.lineTo(box.x + box.width, box.y + box.height);
             ctx.fill();
-
-            // Top lid
-            ctx.fillStyle = box.isBui ? '#b47b5a' : '#9c5a2c';
-            ctx.beginPath();
-            ctx.moveTo(box.x, box.y);
-            ctx.lineTo(box.x + 15, box.y - 15);
-            ctx.lineTo(box.x + box.width + 15, box.y - 15);
-            ctx.lineTo(box.x + box.width, box.y);
-            ctx.fill();
-
-            // Tape
-            ctx.fillStyle = BOX_TAPE_COLOR;
-            ctx.fillRect(box.x + box.width / 2 - 10, box.y, 20, box.height);
-            ctx.fillRect(box.x, box.y + box.height / 2 - 10, box.width, 20);
             
-            // Tape on top
-            ctx.beginPath();
-            ctx.moveTo(box.x + box.width/2 - 5, box.y);
-            ctx.lineTo(box.x + 15 + box.width/2 - 5, box.y - 15);
-            ctx.lineTo(box.x + 15 + box.width/2 + 5, box.y - 15);
-            ctx.lineTo(box.x + box.width/2 + 5, box.y);
-            ctx.fill();
+            // Main box
+            ctx.fillStyle = mainColor;
+            ctx.fillRect(box.x, box.y, box.width, box.height);
 
+            if (box.isOpen) {
+                // Draw "inside" of box
+                ctx.fillStyle = box.isBui ? `hsl(${rainbowHue}, 100%, 20%)` : '#6B3513'; // Darker inner color
+                ctx.fillRect(box.x + 5, box.y + 5, box.width - 10, box.height - 10);
 
-            if (box.isBui) {
-                ctx.save();
-                ctx.font = "bold 24px Arial, sans-serif"; // Helvetica fallback
-                ctx.fillStyle = '#FFFFFF';
+                // Draw the item inside
+                const itemX = box.x + (box.width / 2) - 45; 
+                const itemY = box.y + 20;
+                box.item.draw(itemX, itemY, box.item.flaw);
+
+                // Draw the text inside
+                ctx.font = '14px "Press Start 2P"';
                 ctx.textAlign = 'center';
-                ctx.shadowColor = 'black';
-                ctx.shadowBlur = 4;
-                ctx.fillText("BUI PROJECT", box.x + box.width / 2, box.y + box.height / 2 + 8);
-                ctx.restore();
+
+                if (box.isBui) {
+                    ctx.fillStyle = '#00ff00';
+                    ctx.shadowColor = 'black';
+                    ctx.shadowBlur = 4;
+                    ctx.fillText("perfect in every way", box.x + box.width / 2, box.y + box.height - 15);
+                    ctx.shadowBlur = 0;
+                } else if (box.item.flaw) {
+                     ctx.fillStyle = '#ff4d4d';
+                     ctx.fillText(box.item.flaw.text, box.x + box.width / 2, box.y + box.height - 15);
+                }
+            } else {
+                 // Top lid
+                ctx.fillStyle = topColor;
+                ctx.beginPath();
+                ctx.moveTo(box.x, box.y);
+                ctx.lineTo(box.x + 15, box.y - 15);
+                ctx.lineTo(box.x + box.width + 15, box.y - 15);
+                ctx.lineTo(box.x + box.width, box.y);
+                ctx.fill();
+
+                // Tape
+                ctx.fillStyle = BOX_TAPE_COLOR;
+                ctx.fillRect(box.x + box.width / 2 - 10, box.y, 20, box.height);
+                ctx.fillRect(box.x, box.y + box.height / 2 - 10, box.width, 20);
+                
+                // Tape on top
+                ctx.beginPath();
+                ctx.moveTo(box.x + box.width/2 - 5, box.y);
+                ctx.lineTo(box.x + 15 + box.width/2 - 5, box.y - 15);
+                ctx.lineTo(box.x + 15 + box.width/2 + 5, box.y - 15);
+                ctx.lineTo(box.x + box.width/2 + 5, box.y);
+                ctx.fill();
+
+                if (box.isBui) {
+                    ctx.save();
+                    ctx.font = "bold 24px Arial, sans-serif"; // Helvetica fallback
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.textAlign = 'center';
+                    ctx.shadowColor = 'black';
+                    ctx.shadowBlur = 4;
+                    ctx.fillText("BUI PROJECT", box.x + box.width / 2, box.y + box.height / 2 + 8);
+                    ctx.restore();
+                }
             }
         }
 
         function drawSmellLines(x, y) {
             ctx.strokeStyle = '#aaffaa';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
             ctx.globalAlpha = 0.8;
             for (let i = 0; i < 3; i++) {
                 ctx.beginPath();
-                const startX = x + 30 + i * 15;
-                const startY = y + 20;
+                const startX = x + 25 + i * 15;
+                const startY = y + 15;
                 ctx.moveTo(startX, startY);
                 ctx.quadraticCurveTo(startX - 5, startY - 10, startX, startY - 20);
                 ctx.stroke();
@@ -372,6 +403,9 @@
         }
 
         function drawGoldenShirt(x, y) {
+            ctx.save();
+            ctx.scale(0.8, 0.8);
+            ctx.translate(15,0);
             ctx.fillStyle = '#FFD700';
             // body
             ctx.beginPath();
@@ -404,66 +438,19 @@
             ctx.shadowColor = 'black';
             ctx.shadowBlur = 10;
             ctx.fillText('1', x + 50, y + 90);
-        }
-
-        function drawRevealedItem() {
-            if (revealedItem) {
-                const item = revealedItem.item;
-                const box = revealedItem.box;
-                const itemX = box.x + (box.width / 2) - 50;
-                const itemY = box.y - 120;
-                
-                // Clear area above box
-                ctx.clearRect(box.x - 50, box.y - 160, box.width + 100, 180);
-
-                item.draw(itemX, itemY, item.flaw);
-                ctx.fillStyle = '#fff';
-                ctx.font = '16px "Press Start 2P"';
-                ctx.textAlign = 'center';
-                ctx.fillText(item.name, box.x + box.width / 2, itemY + 140);
-
-                // Draw flaw text
-                if (item.flaw) {
-                    ctx.fillStyle = '#ff4d4d';
-                    ctx.fillText(item.flaw.text, box.x + box.width / 2, itemY - 20);
-                }
-            }
-        }
-        
-        function drawBuiProjectReveal() {
-             const box = boxes.find(b => b.isBui);
-             if(!box) return;
-
-             ctx.clearRect(0, 0, canvas.width, canvas.height);
-             
-             buiProjectItem.draw(canvas.width / 2 - 50, canvas.height / 2 - 80);
-
-             // Add "perfect" text
-             ctx.fillStyle = '#00ff00';
-             ctx.font = '20px "Press Start 2P"';
-             ctx.textAlign = 'center';
-             ctx.shadowColor = 'black';
-             ctx.shadowBlur = 4;
-             ctx.fillText("perfect in every way", canvas.width / 2, canvas.height / 2 + 80);
-             ctx.shadowBlur = 0;
-
-             setTimeout(() => {
-                messageOverlay.style.display = 'flex';
-                messageText.innerHTML = `Tired of shitty samples and bad connection with your manufacturer? <br><br> <a href="mailto:leonard@buiproject.com" class="cta-button">Try Bui Project</a>`;
-             }, 2000); // Wait a second for dramatic effect
+            ctx.restore();
         }
 
         // --- Game Logic ---
         function initializeBoxes() {
             boxes = [];
-            revealedItem = null;
             buiRevealed = false;
             
-            const boxWidth = 150;
-            const boxHeight = 120;
+            const boxWidth = 180;
+            const boxHeight = 150;
             const positions = [
-                { x: 100, y: 150 }, { x: 325, y: 150 }, { x: 550, y: 150 },
-                { x: 100, y: 400 }, { x: 325, y: 400 }, { x: 550, y: 400 }
+                { x: 100, y: 150 }, { x: 410, y: 150 }, { x: 720, y: 150 },
+                { x: 100, y: 450 }, { x: 410, y: 450 }, { x: 720, y: 450 }
             ];
             
             // Shuffle positions to randomize BUI box location
@@ -490,21 +477,22 @@
                     width: boxWidth,
                     height: boxHeight,
                     isBui: isBui, 
-                    item: item
+                    item: item,
+                    isOpen: false
                 });
             }
         }
 
         function gameLoop() {
-            if (buiRevealed) return;
+            if (buiRevealed && messageOverlay.style.display === 'flex') return;
 
+            rainbowHue = (rainbowHue + 1) % 360;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             boxes.forEach(box => {
                 drawBox(box);
             });
 
-            drawRevealedItem();
             requestAnimationFrame(gameLoop);
         }
 
@@ -517,14 +505,17 @@
 
             for (const box of boxes) {
                 if (
+                    !box.isOpen &&
                     mouseX >= box.x && mouseX <= box.x + box.width &&
                     mouseY >= box.y && mouseY <= box.y + box.height
                 ) {
+                    box.isOpen = true;
                     if (box.isBui) {
                         buiRevealed = true;
-                        drawBuiProjectReveal();
-                    } else {
-                        revealedItem = { box, item: box.item };
+                        setTimeout(() => {
+                            messageOverlay.style.display = 'flex';
+                            messageText.innerHTML = `Tired of shitty samples and bad connection with your manufacturer? <br><br> <a href="mailto:leonard@buiproject.com" class="cta-button">Try Bui Project</a>`;
+                        }, 2000);
                     }
                     break;
                 }
@@ -548,5 +539,4 @@
 
 </body>
 </html>
-
 
