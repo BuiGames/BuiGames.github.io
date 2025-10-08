@@ -6,7 +6,7 @@
     <title>Bui Project - The Adventure</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             background-color: #1a1a1a;
@@ -19,7 +19,81 @@
             margin: 0;
             overflow: hidden;
             flex-direction: column;
+            transition: background-color 0.5s ease;
         }
+
+        body.light-mode {
+            /* background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); */
+            color: #1a1a1a;
+        }
+
+        #video-bg {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            z-index: -1;
+            display: none;
+            transition: opacity 0.5s ease;
+            filter: blur(10px);
+            transform: scale(1.1); /* Ensure blur doesn't create hard edges */
+        }
+
+        .mode-switch-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            padding: 5px 10px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        body.light-mode .mode-switch-container {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .mode-switch-container label {
+            padding: 0 10px;
+            cursor: pointer;
+            color: #fff;
+        }
+        body.light-mode .mode-switch-container label {
+             color: #000;
+        }
+        .mode-switch {
+            display: none;
+        }
+        .switch-track {
+            width: 50px;
+            height: 25px;
+            background: #1a1a1a;
+            border-radius: 25px;
+            position: relative;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        .switch-thumb {
+            position: absolute;
+            width: 21px;
+            height: 21px;
+            background: #f0f0f0;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s ease;
+        }
+        .mode-switch:checked + .switch-track .switch-thumb {
+            transform: translateX(25px);
+            background: #ff00ff;
+        }
+
 
         .game-container {
             border: 8px solid #444;
@@ -28,6 +102,12 @@
             padding: 20px;
             box-shadow: 0 0 25px #ff00ff, 0 0 15px #00ffff inset;
             position: relative;
+            transition: opacity 0.4s ease-out;
+        }
+
+        .game-container.hidden {
+            opacity: 0.1;
+            pointer-events: none;
         }
 
         canvas {
@@ -36,6 +116,80 @@
             border-radius: 5px;
             border: 2px solid #333;
             cursor: pointer;
+        }
+        
+        .qa-container {
+            display: none;
+            opacity: 0;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 900px;
+            height: 80vh;
+            max-height: 700px;
+            padding: 20px 40px;
+            box-sizing: border-box;
+            text-align: left;
+            transition: opacity 0.5s ease-in;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            overflow-y: auto;
+            z-index: 500;
+        }
+        
+        .qa-container.visible {
+            display: block;
+            opacity: 1;
+        }
+        
+        /* Custom scrollbar for webkit browsers */
+        .qa-container::-webkit-scrollbar {
+            width: 12px;
+        }
+        .qa-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .qa-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+
+        .qa-container h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-top: 30px;
+            margin-bottom: 10px;
+        }
+
+        .qa-container p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 400;
+            color: #333;
+            margin-bottom: 20px;
+            padding-left: 10px;
+            border-left: 3px solid rgba(0, 0, 0, 0.2);
+        }
+         
+        .qa-container ul {
+            list-style-type: disc;
+            padding-left: 30px;
+            font-size: 1.1rem;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 400;
+            color: #333;
         }
 
         .message-overlay {
@@ -101,12 +255,57 @@
     </style>
 </head>
 <body>
+    <video autoplay muted loop id="video-bg">
+        <source src="https://ik.imagekit.io/bqngtembn/Top%2010%20Best%20Beaches%20in%20Vietnam%20-%20Travel%20Guide%202025%20-%20Travel%20Insights%20(480p,%20h264,%20youtube).mp4?updatedAt=1759939152187" type="video/mp4">
+    </video>
 
-    <div class="game-container">
+    <div class="mode-switch-container">
+        <label for="mode-switch-checkbox">The Real Way</label>
+        <input type="checkbox" id="mode-switch-checkbox" class="mode-switch">
+        <label for="mode-switch-checkbox" class="switch-track"><div class="switch-thumb"></div></label>
+        <label for="mode-switch-checkbox">The Professional Way</label>
+    </div>
+
+    <div class="game-container" id="game-container">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div id="messageOverlay" class="message-overlay">
             <div id="messageText" class="final-message"></div>
         </div>
+    </div>
+    
+    <div class="qa-container" id="qa-container">
+        <h2>How can I be sure the quality will be good if you're in Vietnam?</h2>
+        <p>That’s a completely valid concern, and honestly, it’s the main reason we built our process this way. We don't just send orders to a factory; we are your team on the ground, personally overseeing production. It all starts with a physical sample in your hands, so you can see and feel the quality yourself before we move forward.</p>
+        
+        <h2>This all sounds complicated. Isn't it easier to produce locally?</h2>
+        <p>You're right, traditional overseas production is incredibly complicated. Our entire job is to shield you from that complexity. We handle the logistics, the language barriers, and the day-to-day management so the process feels straightforward for you, while you benefit from the cost and flexibility.</p>
+        
+        <h2>What are your MOQs (Minimum Order Quantities)?</h2>
+        <p>It's flexible and depends on the project. We don't have rigid rules because we work with a network of specialized manufacturers. We typically start projects around 100 units per style, but the best way to know for sure is to tell me a bit about what you have in mind.</p>
+
+        <h2>What's your pricing? Can you send me a price list?</h2>
+        <p>Every project we do is custom. We don't have a standard price list. Our goal is to give you an accurate price. The best way to do that is for you to share a few key details on your project. Typically, we need:</p>
+        <ul>
+            <li>A tech pack (if one is available).</li>
+            <li>Design sketches or reference images that show the vision.</li>
+            <li>Your target order quantity (an estimate is perfectly fine).</li>
+            <li>Any initial thoughts on fabrics or materials you'd like to use.</li>
+        </ul>
+
+        <h2>How long does the process take? What are your lead times?</h2>
+        <p>Timelines depend on the complexity of the project, but we can give you a general breakdown. The initial sample process—from receiving your tech pack to you having the sample in hand—typically takes about 3-4 weeks. For bulk production after you've approved the sample, you can usually expect another 4-8 weeks, depending on the quantity and complexity. We'll always create a detailed calendar for your specific project so you have full transparency on the timeline.</p>
+
+        <h2>How do I know my designs are safe and my intellectual property is protected?</h2>
+        <p>We take this extremely seriously. Our entire business is built on trust and long-term partnerships. We operate within a closed network of vetted manufacturers with whom we have long-standing relationships. We are of course happy to sign a Non-Disclosure Agreement (NDA) before you share any sensitive design information. Your success is our success, and protecting your IP is fundamental to that.</p>
+
+        <h2>How do you ensure your partner factories are ethical and sustainable?</h2>
+        <p>This is central to our mission. We're committed to challenging the old stereotypes of Asian manufacturing. We only partner with factories that we have personally vetted on-site. We know the owners, we've walked the floors, and we ensure they meet our standards for fair labor practices and safe working conditions. If you have specific sustainability goals, like using organic or recycled materials, let us know. We have excellent suppliers who specialize in that.</p>
+
+        <h2>How does shipping and logistics work? Do you handle that?</h2>
+        <p>Yes, we handle the entire process from the factory floor to your door. Our job is to remove the complexity for you. Once production is complete and has passed our final quality control, we manage all the logistics. We can provide quotes for both air freight (faster, more expensive) and sea freight (slower, more cost-effective) so you can choose the best option for your budget and timeline.</p>
+
+        <h2>What are your payment terms?</h2>
+        <p>For the initial sample, we require 100% payment upfront to begin. For the full production run, we operate on a 70/30 model. A 70% deposit is required to secure the raw materials and start production. The final 30% is due upon completion, once the goods have passed our final quality inspection and are ready for shipment. We accept payments via Wise or standard bank transfer and can process transactions in both EUR and USD for your convenience.</p>
     </div>
 
 <script>
@@ -114,6 +313,11 @@
     const ctx = canvas.getContext('2d');
     const messageOverlay = document.getElementById('messageOverlay');
     const messageText = document.getElementById('messageText');
+    const modeSwitch = document.getElementById('mode-switch-checkbox');
+    const gameContainer = document.getElementById('game-container');
+    const qaContainer = document.getElementById('qa-container');
+    const videoBg = document.getElementById('video-bg');
+
 
     // --- Game States & Data ---
     const GAME_STATES = {
@@ -132,6 +336,7 @@
     let rainbowHue = 0;
     let clickRegions = {};
     let emailTextLines = [];
+    let isGameActive = true;
     
     const emailText = `Hey Leon,
 
@@ -229,8 +434,12 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
         // Animated shiny gradient
         const gradient = ctx.createLinearGradient(50, 0, 150, 150);
         const colorStop1 = (Math.sin(animationState.frame * 0.05) + 1) / 2; // oscillates between 0 and 1
+        
         gradient.addColorStop(0, '#32cd32');
-        gradient.addColorStop(colorStop1, '#adff2f');
+        // Add a check to prevent non-finite values which cause a crash
+        if (isFinite(colorStop1)) {
+            gradient.addColorStop(colorStop1, '#adff2f');
+        }
         gradient.addColorStop(1, '#32cd32');
 
         ctx.fillStyle = gradient; 
@@ -571,7 +780,7 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
             else if (flaw === 'smell') drawChemicalSmell(userChoices.product, itemX, itemY);
             else if (flaw === 'fuzzies') drawFuzzies(userChoices.product, itemX, itemY);
             
-            if (count === 1) {
+            if (count < 2) {
                 const btnRevise = { id: 'revise', text: 'Request another revision (+2 Weeks)', x: canvas.width/2 - 300, y: 550, w: 600, h: 80};
                 const btnBui = { id: 'bui', text: 'There must be a better way...', x: canvas.width/2 - 300, y: 650, w: 600, h: 80};
                 drawButton(btnRevise.text, btnRevise.x, btnRevise.y, btnRevise.w, btnRevise.h, hoverTarget === btnRevise.id, false, btnRevise.id);
@@ -633,12 +842,19 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
     }
 
     // --- Core Logic ---
-    function determineFlaw() {
+    function determineInitialFlaw() {
         if (userChoices.missedStitching) return 'stitching';
         if (userChoices.choseBudgetFabric) return 'color';
-        if (userChoices.factoryMismatch) return 'size'; // Changed from 'fit' to 'size'
+        if (userChoices.factoryMismatch) return 'size';
         const randomFlaws = ['stitching', 'color', 'size', 'smell', 'fuzzies'];
         return randomFlaws[Math.floor(Math.random() * randomFlaws.length)];
+    }
+
+    // This function determines a NEW flaw, ensuring it's not the one provided.
+    function determineRevisionFlaw(previousFlaw) {
+        const randomFlaws = ['stitching', 'color', 'size', 'smell', 'fuzzies'];
+        const availableFlaws = randomFlaws.filter(f => f !== previousFlaw);
+        return availableFlaws[Math.floor(Math.random() * availableFlaws.length)];
     }
 
     // Text wrapping utility
@@ -670,6 +886,9 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
     }
 
     function gameLoop() {
+        if (!isGameActive) {
+            return; // Stop the loop if the game is not active
+        }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         animationState.frame++;
         
@@ -687,6 +906,7 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
     
     // --- Event Handlers ---
     function handleClick(event) {
+        if (!isGameActive) return;
         const rect = canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
@@ -719,7 +939,7 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
                         if (userChoices.product === 'hat' && region.id === 'germany') userChoices.factoryMismatch = true;
                         if (userChoices.product === 'pants' && region.id === 'portugal') userChoices.factoryMismatch = true;
                         
-                        userChoices.sampling.flaw = determineFlaw();
+                        userChoices.sampling.flaw = determineInitialFlaw();
                         animationState.subState = 0; // Start shipping animation
                         animationState.x = -200;
                         gameState = GAME_STATES.SAMPLING_LOOP;
@@ -728,7 +948,7 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
                          if(region.id === 'revise') {
                              userChoices.sampling.count++;
                              userChoices.sampling.time += 2;
-                             userChoices.sampling.flaw = determineFlaw();
+                             userChoices.sampling.flaw = determineRevisionFlaw(userChoices.sampling.flaw);
                              animationState.subState = 0; // Back to shipping
                              animationState.x = -200;
                          } else if (region.id === 'bui') {
@@ -789,6 +1009,7 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
     }
     
     function handleMouseMove(event) {
+        if (!isGameActive) return;
         const rect = canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
@@ -804,6 +1025,27 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
              }
         }
     }
+
+    modeSwitch.addEventListener('change', () => {
+        if (modeSwitch.checked) {
+            // Switch to professional mode
+            document.body.classList.add('light-mode');
+            videoBg.style.display = 'block';
+            gameContainer.classList.add('hidden');
+            isGameActive = false;
+            qaContainer.classList.add('visible');
+
+        } else {
+            // Switch back to game mode
+            document.body.classList.remove('light-mode');
+            videoBg.style.display = 'none';
+            qaContainer.classList.remove('visible');
+            gameContainer.classList.remove('hidden');
+            isGameActive = true;
+            requestAnimationFrame(gameLoop); // Restart the loop
+        }
+    });
+
     canvas.addEventListener('click', handleClick);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('wheel', handleWheel);
@@ -815,5 +1057,4 @@ Falls das interessant für euch ist, können wir uns gerne über Produktion aust
 
 </body>
 </html>
-
 
