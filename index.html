@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bui Project - Package Picker</title>
+    <title>Bui Project - The Adventure</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@700&display=swap" rel="stylesheet">
     <style>
         body {
             background-color: #1a1a1a;
@@ -30,14 +30,6 @@
             position: relative;
         }
 
-        h1 {
-            font-size: 2.5rem;
-            color: #ffff00;
-            text-shadow: 3px 3px 0px #ff00ff;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
         canvas {
             background-color: #0d0d0d;
             display: block;
@@ -52,7 +44,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color: rgba(0, 0, 0, 0.9);
             display: none;
             justify-content: center;
             align-items: center;
@@ -60,32 +52,36 @@
             text-align: center;
             padding: 20px;
             box-sizing: border-box;
+            animation: fadeIn 0.5s ease-in-out;
         }
         
         .final-message {
-            font-size: 1.5rem;
+            font-size: 2rem;
             color: #00ff00;
             line-height: 1.6;
             text-shadow: 2px 2px 0px #1a1a1a;
             max-width: 90%;
-            animation: fadeIn 1s ease-in-out;
         }
 
         .cta-button {
             display: inline-block;
             background-color: #ffff00;
             color: #1a1a1a;
-            padding: 15px 30px;
+            padding: 20px 40px;
             margin-top: 30px;
             border-radius: 5px;
             text-decoration: none;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             text-shadow: none;
             border: 3px solid #1a1a1a;
             box-shadow: 5px 5px 0px #ff00ff;
             transition: all 0.1s linear;
         }
 
+        .cta-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 3px 3px 0px #ff00ff;
+        }
         .cta-button:active {
             transform: translate(5px, 5px);
             box-shadow: 0 0 0 #ff00ff;
@@ -99,9 +95,8 @@
 </head>
 <body>
 
-    <h1>PACKAGE PICKER</h1>
     <div class="game-container">
-        <canvas id="gameCanvas" width="1000" height="750"></canvas>
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div id="messageOverlay" class="message-overlay">
             <div id="messageText" class="final-message"></div>
         </div>
@@ -113,427 +108,430 @@
         const messageOverlay = document.getElementById('messageOverlay');
         const messageText = document.getElementById('messageText');
 
-        const BOX_COLOR = '#8B4513';
-        const BOX_TAPE_COLOR = '#A0522D';
-
         // --- Game State ---
-        let boxes = [];
-        let buiRevealed = false;
+        let gameState = 'CHOOSE_PRODUCT';
+        let userChoices = {
+            product: null,
+            manufacturer: null,
+        };
+        let hoverTarget = null;
+        let animationState = { x: 0, alpha: 0, complete: false, lootboxItemIndex: 0, frame: 0 };
         let rainbowHue = 0;
 
-        // --- Game Objects ---
-        const clothingItems = [
-            { name: 'Pants', draw: drawPants },
-            { name: 'Gloves', draw: drawGloves },
-            { name: 'Hat', draw: drawHat },
-            { name: 'Socks', draw: drawSocks },
-        ];
+        // --- Clickable Regions ---
+        let clickRegions = {};
 
-        const flaws = [
-            { type: 'size', text: 'Wrong Size!' },
-            { type: 'smell', text: 'Smells of chemicals!' },
-            { type: 'fuzz', text: 'fuzzies all over!' },
-            { type: 'color', text: 'Wrong color!' },
-            { type: 'quality', text: 'Bad Quality!' }
-        ];
+        function setRegions(regions) {
+            clickRegions[gameState] = regions;
+        }
+
+        // --- Drawing Assets ---
+        function drawIdealHat(x, y, scale = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#ff1493'; // Deep Pink
+            ctx.beginPath();
+            ctx.ellipse(100, 100, 100, 25, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ff69b4'; // Hot Pink
+            ctx.beginPath();
+            ctx.ellipse(100, 70, 60, 40, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawIdealPants(x, y, scale = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#1e90ff'; // Dodger Blue
+            ctx.fillRect(50, 0, 50, 150);
+            ctx.fillRect(110, 0, 50, 150);
+            ctx.fillRect(50, -10, 110, 20);
+            ctx.restore();
+        }
+
+        function drawIdealTop(x, y, scale = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#32cd32'; // Lime Green
+            ctx.beginPath();
+            ctx.moveTo(50, 0);
+            ctx.lineTo(150, 0);
+            ctx.lineTo(120, 150);
+            ctx.lineTo(80, 150);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
         
-        const buiProjectItem = {
-            name: 'Golden Shirt',
-            draw: drawGoldenShirt
+        const idealProducts = {
+            hat: { draw: drawIdealHat, name: "A Fabulous Hat" },
+            pants: { draw: drawIdealPants, name: "Trendy Pants" },
+            top: { draw: drawIdealTop, name: "A Cute Top" },
         };
+        
+        function drawFlawedItem(item, x, y, scale = 1){
+            // Simplified flawed item drawing
+             ctx.save();
+             ctx.translate(x, y);
+             ctx.scale(scale, scale);
+             ctx.globalAlpha = 0.6;
+             ctx.filter = 'grayscale(80%)';
+             idealProducts[item].draw(0,0);
+             ctx.filter = 'none';
+             ctx.globalAlpha = 1;
 
-        // --- Drawing Functions ---
-        function drawBox(box) {
-            let mainColor = BOX_COLOR;
-            let topColor = '#9c5a2c';
-            if (box.isBui) {
-                mainColor = `hsl(${rainbowHue}, 100%, 60%)`;
-                topColor = `hsl(${rainbowHue}, 100%, 70%)`;
-            }
-
-            // Shading for 3D effect
-            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            // Draw a big red X
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 15;
             ctx.beginPath();
-            ctx.moveTo(box.x, box.y + box.height);
-            ctx.lineTo(box.x + 15, box.y + box.height - 15);
-            ctx.lineTo(box.x + box.width + 15, box.y + box.height - 15);
-            ctx.lineTo(box.x + box.width, box.y + box.height);
-            ctx.fill();
+            ctx.moveTo(50, 20);
+            ctx.lineTo(150, 130);
+            ctx.moveTo(150, 20);
+            ctx.lineTo(50, 130);
+            ctx.stroke();
 
-            ctx.beginPath();
-            ctx.moveTo(box.x + box.width, box.y);
-            ctx.lineTo(box.x + box.width + 15, box.y - 15);
-            ctx.lineTo(box.x + box.width + 15, box.y + box.height - 15);
-            ctx.lineTo(box.x + box.width, box.y + box.height);
-            ctx.fill();
-            
-            // Main box
-            ctx.fillStyle = mainColor;
-            ctx.fillRect(box.x, box.y, box.width, box.height);
-
-            if (box.isOpen) {
-                // Draw "inside" of box
-                ctx.fillStyle = box.isBui ? `hsl(${rainbowHue}, 100%, 20%)` : '#6B3513'; // Darker inner color
-                ctx.fillRect(box.x + 5, box.y + 5, box.width - 10, box.height - 10);
-
-                // Draw the item inside
-                const itemX = box.x + (box.width / 2) - 45; 
-                const itemY = box.y + 20;
-                box.item.draw(itemX, itemY, box.item.flaw);
-
-                // Draw the text inside
-                ctx.font = '14px "Press Start 2P"';
-                ctx.textAlign = 'center';
-
-                if (box.isBui) {
-                    ctx.fillStyle = '#00ff00';
-                    ctx.shadowColor = 'black';
-                    ctx.shadowBlur = 4;
-                    ctx.fillText("perfect in every way", box.x + box.width / 2, box.y + box.height - 15);
-                    ctx.shadowBlur = 0;
-                } else if (box.item.flaw) {
-                     ctx.fillStyle = '#ff4d4d';
-                     ctx.fillText(box.item.flaw.text, box.x + box.width / 2, box.y + box.height - 15);
-                }
-            } else {
-                 // Top lid
-                ctx.fillStyle = topColor;
-                ctx.beginPath();
-                ctx.moveTo(box.x, box.y);
-                ctx.lineTo(box.x + 15, box.y - 15);
-                ctx.lineTo(box.x + box.width + 15, box.y - 15);
-                ctx.lineTo(box.x + box.width, box.y);
-                ctx.fill();
-
-                // Tape
-                ctx.fillStyle = BOX_TAPE_COLOR;
-                ctx.fillRect(box.x + box.width / 2 - 10, box.y, 20, box.height);
-                ctx.fillRect(box.x, box.y + box.height / 2 - 10, box.width, 20);
-                
-                // Tape on top
-                ctx.beginPath();
-                ctx.moveTo(box.x + box.width/2 - 5, box.y);
-                ctx.lineTo(box.x + 15 + box.width/2 - 5, box.y - 15);
-                ctx.lineTo(box.x + 15 + box.width/2 + 5, box.y - 15);
-                ctx.lineTo(box.x + box.width/2 + 5, box.y);
-                ctx.fill();
-
-                if (box.isBui) {
-                    ctx.save();
-                    ctx.font = "bold 24px Arial, sans-serif"; // Helvetica fallback
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.textAlign = 'center';
-                    ctx.shadowColor = 'black';
-                    ctx.shadowBlur = 4;
-                    ctx.fillText("BUI PROJECT", box.x + box.width / 2, box.y + box.height / 2 + 8);
-                    ctx.restore();
-                }
-            }
+            ctx.restore();
         }
 
-        function drawSmellLines(x, y) {
-            ctx.strokeStyle = '#aaffaa';
+        function drawManufacturer(x, y, type) {
+            ctx.fillStyle = '#F5DEB3'; // Wheat
+            ctx.beginPath();
+            ctx.arc(x, y, 50, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(x - 20, y - 10, 5, 0, Math.PI * 2);
+            ctx.arc(x + 20, y - 10, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(x - 20, y + 20);
+            ctx.lineTo(x + 20, y + 20);
+            ctx.stroke();
+
+            ctx.font = '16px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(type, x, y + 80);
+        }
+        
+        function drawBuiManufacturer(x, y) {
+            // Head
+            ctx.fillStyle = '#F5DEB3';
+            ctx.beginPath();
+            ctx.arc(x, y, 60, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes (cool sunglasses)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x - 40, y - 20, 30, 15);
+            ctx.fillRect(x + 10, y - 20, 30, 15);
+            ctx.fillRect(x-10, y-15, 20, 5);
+
+            // Smile
+            ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
-            ctx.globalAlpha = 0.8;
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                const startX = x + 25 + i * 15;
-                const startY = y + 15;
-                ctx.moveTo(startX, startY);
-                ctx.quadraticCurveTo(startX - 5, startY - 10, startX, startY - 20);
-                ctx.stroke();
-            }
-            ctx.globalAlpha = 1.0;
+            ctx.beginPath();
+            ctx.arc(x, y + 20, 20, 0, Math.PI);
+            ctx.stroke();
+            
+            // Tattoos (simple swirls)
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x - 40, y + 10);
+            ctx.quadraticCurveTo(x-60, y+30, x-40, y+50);
+            ctx.stroke();
+
+            // Flag
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x + 70, y - 50, 100, 60);
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.moveTo(x + 120, y - 40);
+            ctx.lineTo(x + 130, y - 20);
+            ctx.lineTo(x + 150, y - 20);
+            ctx.lineTo(x + 135, y - 10);
+            ctx.lineTo(x + 140, y + 5);
+            ctx.lineTo(x + 120, y - 5);
+            ctx.lineTo(x + 100, y + 5);
+            ctx.lineTo(x + 105, y - 10);
+            ctx.lineTo(x + 90, y - 20);
+            ctx.lineTo(x + 110, y - 20);
+            ctx.closePath();
+            ctx.fill();
+
+             ctx.font = '16px "Press Start 2P"';
+             ctx.textAlign = 'center';
+             ctx.fillStyle = '#fff';
+             ctx.fillText("Bui Project", x, y + 100);
         }
 
-        function drawPants(x, y, flaw) {
-            let color = '#3366ff';
-            if (flaw && flaw.type === 'color') color = '#FF69B4'; // Hot pink
-
+        function drawText(text, x, y, size = 32, color = '#fff') {
+            ctx.font = `${size}px "Press Start 2P"`;
             ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.fillText(text, x, y);
+        }
+        
+        function drawButton(text, x, y, w, h, isHovered = false) {
+            ctx.fillStyle = isHovered ? '#ffff00' : '#fff';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x,y,w,h);
+            drawText(text, x + w/2, y + h/2 + 8, 20, isHovered ? '#000' : '#fff');
+        }
 
-            let scale = 1;
-            if (flaw && flaw.type === 'size') scale = 0.6;
+        // --- Game Screens ---
+
+        function drawChooseProductScreen() {
+            drawText("First, choose your creation:", canvas.width / 2, 100);
             
-            ctx.save();
-            ctx.translate(x, y);
-            if (scale !== 1) {
-                ctx.translate(45, 40); // center the scaled item
-                ctx.scale(scale, scale);
-                ctx.translate(-45, -40);
-            }
-            ctx.fillRect(0, 0, 40, 80);
-            ctx.fillRect(50, 0, 40, 80);
-            ctx.fillRect(0, -10, 90, 20);
-            ctx.restore();
+            const regions = [
+                { id: 'hat', x: 150, y: 300, w: 200, h: 200 },
+                { id: 'pants', x: 500, y: 300, w: 200, h: 200 },
+                { id: 'top', x: 850, y: 300, w: 200, h: 200 },
+            ];
 
-            if (flaw && flaw.type === 'quality') {
-                ctx.fillStyle = '#0d0d0d'; // bg color for hole
+            regions.forEach(region => {
+                ctx.strokeStyle = (hoverTarget === region.id) ? '#ffff00' : '#555';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(region.x - 20, region.y - 20, region.w + 40, region.h + 40);
+                idealProducts[region.id].draw(region.x, region.y);
+                drawText(idealProducts[region.id].name, region.x + region.w / 2, region.y + 250, 16);
+            });
+            setRegions(regions);
+        }
+
+        function drawManufacturerScreen() {
+            drawText("Next, choose your manufacturer:", canvas.width / 2, 100);
+
+            const regions = [
+                { id: 'china', x: 250, y: 400, w: 100, h: 100 },
+                { id: 'portugal', x: 600, y: 400, w: 100, h: 100 },
+                { id: 'germany', x: 950, y: 400, w: 100, h: 100 },
+            ];
+
+            drawManufacturer(regions[0].x, regions[0].y, "China");
+            drawManufacturer(regions[1].x, regions[1].y, "Portugal");
+            drawManufacturer(regions[2].x, regions[2].y, "Germany");
+            
+            if(hoverTarget === 'china') drawText('$', regions[0].x, regions[0].y + 130, 30, '#00ff00');
+            if(hoverTarget === 'portugal') drawText('$$', regions[1].x, regions[1].y + 130, 30, '#00ff00');
+            if(hoverTarget === 'germany') drawText('$$$', regions[2].x, regions[2].y + 130, 30, '#00ff00');
+            setRegions(regions);
+        }
+        
+        function drawShippingScreen() {
+            drawText("Shipping your sample...", canvas.width/2, 100);
+            
+            if (userChoices.manufacturer === 'germany') { // Truck
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(animationState.x, canvas.height/2, 100, 50); // Body
+                ctx.fillRect(animationState.x + 100, canvas.height/2 + 20, 40, 30); // Cab
+                ctx.fillStyle = '#555';
                 ctx.beginPath();
-                ctx.arc(x + 20, y + 40, 8, 0, Math.PI * 2);
+                ctx.arc(animationState.x + 20, canvas.height/2 + 50, 15, 0, Math.PI * 2);
+                ctx.arc(animationState.x + 90, canvas.height/2 + 50, 15, 0, Math.PI * 2);
                 ctx.fill();
+            } else { // Boat
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.moveTo(animationState.x, canvas.height/2);
+                ctx.lineTo(animationState.x + 200, canvas.height/2);
+                ctx.lineTo(animationState.x + 170, canvas.height/2 + 50);
+                ctx.lineTo(animationState.x + 30, canvas.height/2 + 50);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(animationState.x + 40, canvas.height/2 - 30, 120, 30);
             }
-            if (flaw && flaw.type === 'fuzz') {
-                for (let i = 0; i < 15; i++) {
-                    ctx.fillStyle = '#ddd';
-                    ctx.fillRect(x + (Math.random() * 85), y + (Math.random() * 75), 2, 2);
-                }
-            }
-            if (flaw && flaw.type === 'smell') {
-                drawSmellLines(x, y);
-            }
-        }
-
-        function drawGloves(x, y, flaw) {
-            let color = '#cccccc';
-            if (flaw && flaw.type === 'color') color = '#7CFC00'; // Lawn Green
-
-            ctx.fillStyle = color;
-
-            let scale = 1;
-            if (flaw && flaw.type === 'size') scale = 1.4;
-
-            ctx.save();
-            ctx.translate(x, y);
-            if (scale !== 1) {
-                ctx.translate(45, 30);
-                ctx.scale(scale, scale);
-                ctx.translate(-45, -30);
-            }
-            ctx.fillRect(0, 0, 40, 50);
-            ctx.fillRect(50, 0, 40, 50);
-            for (let i = 0; i < 4; i++) {
-                ctx.fillRect(i * 10, -15, 8, 15);
-                ctx.fillRect(50 + i * 10, -15, 8, 15);
-            }
-            ctx.restore();
-
-            if (flaw && flaw.type === 'quality') {
-                ctx.fillStyle = '#0d0d0d';
-                ctx.fillRect(x + 60, y + 10, 20, 5);
-            }
-            if (flaw && flaw.type === 'fuzz') {
-                 for (let i = 0; i < 15; i++) {
-                    ctx.fillStyle = '#555';
-                    ctx.fillRect(x + (Math.random() * 85), y + (Math.random() * 45), 2, 2);
-                }
-            }
-            if (flaw && flaw.type === 'smell') {
-                drawSmellLines(x, y);
-            }
-        }
-
-        function drawHat(x, y, flaw) {
-            let color = '#ff6600';
-            if (flaw && flaw.type === 'color') color = '#9400D3'; // Dark Violet
-            
-            ctx.fillStyle = color;
-
-            let scale = 1;
-            if (flaw && flaw.type === 'size') scale = 0.7;
-
-            ctx.save();
-            ctx.translate(x, y);
-             if (scale !== 1) {
-                ctx.translate(40, 25);
-                ctx.scale(scale, scale);
-                ctx.translate(-40, -25);
-            }
-            ctx.fillRect(-10, 40, 100, 15);
-            ctx.fillRect(10, 0, 60, 40);
-            ctx.restore();
-
-            if (flaw && flaw.type === 'quality') {
-                 ctx.strokeStyle = '#000';
-                 ctx.lineWidth = 2;
-                 ctx.beginPath();
-                 ctx.moveTo(x + 20, y);
-                 ctx.lineTo(x + 50, y + 10);
-                 ctx.stroke();
-            }
-             if (flaw && flaw.type === 'fuzz') {
-                 for (let i = 0; i < 15; i++) {
-                    ctx.fillStyle = '#ddd';
-                    ctx.fillRect(x - 5 + (Math.random() * 90), y + (Math.random() * 50), 2, 2);
-                }
-            }
-            if (flaw && flaw.type === 'smell') {
-                drawSmellLines(x, y);
+            // Animate
+            animationState.x += 5;
+            if (animationState.x > canvas.width) {
+                 gameState = 'REVEAL_FLAWED';
+                 resetAnimation();
             }
         }
         
-        function drawSocks(x, y, flaw) {
-            let color = '#22aa22';
-            if (flaw && flaw.type === 'color') color = '#FF8C00'; // Dark Orange
-
-            ctx.fillStyle = color;
-
-            let scale = 1;
-            if (flaw && flaw.type === 'size') scale = 1.3;
-
-            ctx.save();
-            ctx.translate(x,y);
-            if (scale !== 1) {
-                ctx.translate(35, 30);
-                ctx.scale(scale, scale);
-                ctx.translate(-35, -30);
-            }
-            ctx.fillRect(0, 0, 30, 60);
-            ctx.fillRect(40, 0, 30, 60);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, 30, 10);
-            ctx.fillRect(40, 0, 30, 10);
-            ctx.restore();
-
-            if (flaw && flaw.type === 'quality') {
-                ctx.fillStyle = '#0d0d0d';
-                ctx.beginPath();
-                ctx.arc(x + 15, y + 40, 5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-             if (flaw && flaw.type === 'fuzz') {
-                 for (let i = 0; i < 15; i++) {
-                    ctx.fillStyle = '#ddd';
-                    ctx.fillRect(x + (Math.random() * 65), y + 10 + (Math.random() * 45), 2, 2);
-                }
-            }
-             if (flaw && flaw.type === 'smell') {
-                drawSmellLines(x, y);
-            }
-        }
-
-        function drawGoldenShirt(x, y) {
-            ctx.save();
-            ctx.scale(0.8, 0.8);
-            ctx.translate(15,0);
-            ctx.fillStyle = '#FFD700';
-            // body
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + 100, y);
-            ctx.lineTo(x + 80, y + 120);
-            ctx.lineTo(x + 20, y + 120);
-            ctx.closePath();
-            ctx.fill();
-
-            // sleeves
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x - 40, y + 30);
-            ctx.lineTo(x - 20, y + 50);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.moveTo(x + 100, y);
-            ctx.lineTo(x + 140, y + 30);
-            ctx.lineTo(x + 120, y + 50);
-            ctx.closePath();
-            ctx.fill();
-
-            // Number 1
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 80px "Press Start 2P"';
-            ctx.textAlign = 'center';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 10;
-            ctx.fillText('1', x + 50, y + 90);
-            ctx.restore();
-        }
-
-        // --- Game Logic ---
-        function initializeBoxes() {
-            boxes = [];
-            buiRevealed = false;
+        function drawRevealFlawedScreen() {
+            drawText("Oh no... it's not quite right.", canvas.width/2, 150, 30, '#ff4d4d');
+            drawFlawedItem(userChoices.product, canvas.width/2 - 100, 250);
             
-            const boxWidth = 180;
-            const boxHeight = 150;
-            const positions = [
-                { x: 100, y: 150 }, { x: 410, y: 150 }, { x: 720, y: 150 },
-                { x: 100, y: 450 }, { x: 410, y: 450 }, { x: 720, y: 450 }
-            ];
+            const region = { id: 'restart', x: canvas.width/2 - 150, y: 600, w: 300, h: 80 };
+            drawButton("Restart?", region.x, region.y, region.w, region.h, hoverTarget === region.id);
+            setRegions([region]);
+        }
+        
+        function drawRestartScreen() {
+             drawText("There must be a better way...", canvas.width/2, 200);
+             const region = { id: 'bui', x: canvas.width/2 - 250, y: 350, w: 500, h: 120 };
+             
+             // Rainbow button
+             ctx.fillStyle = `hsl(${rainbowHue}, 100%, 60%)`;
+             ctx.strokeStyle = '#fff';
+             ctx.lineWidth = 5;
+             ctx.fillRect(region.x, region.y, region.w, region.h);
+             ctx.strokeRect(region.x, region.y, region.w, region.h);
+             drawText("TRY BUI PROJECT", region.x + region.w/2, region.y + region.h/2 + 10, 30, '#fff');
+             
+             setRegions([region]);
+        }
+        
+        function drawBuiExperience() {
+            animationState.frame++;
+            if (animationState.frame % 30 === 0) {
+                 animationState.lootboxItemIndex = (animationState.lootboxItemIndex + 1) % Object.keys(idealProducts).length;
+            }
             
-            // Shuffle positions to randomize BUI box location
-            for (let i = positions.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [positions[i], positions[j]] = [positions[j], positions[i]];
-            }
+            // Draw Lootbox
+            ctx.fillStyle = `hsl(${rainbowHue}, 100%, 50%)`;
+            ctx.strokeStyle = `hsl(${rainbowHue}, 100%, 80%)`;
+            ctx.fillRect(canvas.width / 2 - 150, 100, 300, 250);
+            ctx.strokeRect(canvas.width / 2 - 150, 100, 300, 250);
 
-            for (let i = 0; i < 6; i++) {
-                const isBui = i === 0;
-                let item;
+            // Draw cycling item
+            const itemKey = Object.keys(idealProducts)[animationState.lootboxItemIndex];
+            idealProducts[itemKey].draw(canvas.width/2 - 100, 150);
 
-                if (isBui) {
-                    item = { ...buiProjectItem };
-                } else {
-                    const baseItem = clothingItems[Math.floor(Math.random() * clothingItems.length)];
-                    const randomFlaw = flaws[Math.floor(Math.random() * flaws.length)];
-                    item = { ...baseItem, flaw: randomFlaw };
-                }
+            drawBuiManufacturer(canvas.width/2, 550);
 
-                boxes.push({
-                    x: positions[i].x,
-                    y: positions[i].y,
-                    width: boxWidth,
-                    height: boxHeight,
-                    isBui: isBui, 
-                    item: item,
-                    isOpen: false
-                });
-            }
+            if(animationState.alpha < 1) animationState.alpha += 0.02;
+            
+            ctx.globalAlpha = animationState.alpha;
+            drawText("We can make anything.", canvas.width/2, 400, 20);
+            drawText("Flexible Pricing. Quality Guaranteed.", canvas.width/2, 700, 20);
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawRevealPerfectScreen() {
+            drawText("The perfect item has arrived!", canvas.width / 2, 200, 30, '#00ff00');
+            idealProducts[userChoices.product].draw(canvas.width / 2 - 100, 300, 1.5);
         }
 
+        // --- Main Loop ---
         function gameLoop() {
-            if (buiRevealed && messageOverlay.style.display === 'flex') return;
-
-            rainbowHue = (rainbowHue + 1) % 360;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            boxes.forEach(box => {
-                drawBox(box);
-            });
+            hoverTarget = null;
+            rainbowHue = (rainbowHue + 2) % 360;
+
+            switch (gameState) {
+                case 'CHOOSE_PRODUCT':
+                    drawChooseProductScreen();
+                    break;
+                case 'CHOOSE_MANUFACTURER':
+                    drawManufacturerScreen();
+                    break;
+                case 'SHIPPING_ANIMATION':
+                    drawShippingScreen();
+                    break;
+                case 'REVEAL_FLAWED':
+                    drawRevealFlawedScreen();
+                    break;
+                case 'RESTART_SCREEN':
+                    drawRestartScreen();
+                    break;
+                case 'BUI_EXPERIENCE':
+                     drawBuiExperience();
+                     break;
+                case 'REVEAL_PERFECT':
+                     drawRevealPerfectScreen();
+                     break;
+            }
 
             requestAnimationFrame(gameLoop);
         }
+        
+        function resetAnimation() {
+            animationState = { x: -200, alpha: 0, complete: false, lootboxItemIndex: 0, frame: 0 };
+        }
+
+        // --- Event Handlers ---
+        function handleMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            
+            const regions = clickRegions[gameState] || [];
+            let foundHover = false;
+            for (const region of regions) {
+                 if (mouseX >= region.x && mouseX <= region.x + region.w &&
+                     mouseY >= region.y && mouseY <= region.y + region.h) {
+                     hoverTarget = region.id;
+                     canvas.style.cursor = 'pointer';
+                     foundHover = true;
+                     break;
+                 }
+            }
+            if(!foundHover) canvas.style.cursor = 'default';
+        }
 
         function handleClick(event) {
-            if (buiRevealed) return;
-
             const rect = canvas.getBoundingClientRect();
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
 
-            for (const box of boxes) {
-                if (
-                    !box.isOpen &&
-                    mouseX >= box.x && mouseX <= box.x + box.width &&
-                    mouseY >= box.y && mouseY <= box.y + box.height
-                ) {
-                    box.isOpen = true;
-                    if (box.isBui) {
-                        buiRevealed = true;
-                        setTimeout(() => {
-                            messageOverlay.style.display = 'flex';
-                            messageText.innerHTML = `Tired of shitty samples and bad connection with your manufacturer? <br><br> <a href="mailto:leonard@buiproject.com" class="cta-button">Try Bui Project</a>`;
-                        }, 2000);
+            const regions = clickRegions[gameState] || [];
+            for (const region of regions) {
+                if (mouseX >= region.x && mouseX <= region.x + region.w &&
+                    mouseY >= region.y && mouseY <= region.y + region.h) {
+                    
+                    // --- State Transitions based on Clicks ---
+                    switch(gameState) {
+                        case 'CHOOSE_PRODUCT':
+                            userChoices.product = region.id;
+                            gameState = 'CHOOSE_MANUFACTURER';
+                            break;
+                        case 'CHOOSE_MANUFACTURER':
+                             userChoices.manufacturer = region.id;
+                             gameState = 'SHIPPING_ANIMATION';
+                             resetAnimation();
+                             break;
+                        case 'REVEAL_FLAWED':
+                            if (region.id === 'restart') {
+                                gameState = 'RESTART_SCREEN';
+                            }
+                            break;
+                        case 'RESTART_SCREEN':
+                            if (region.id === 'bui') {
+                                gameState = 'BUI_EXPERIENCE';
+                                resetAnimation();
+                                setTimeout(() => {
+                                    gameState = 'REVEAL_PERFECT';
+                                    setTimeout(() => {
+                                        messageOverlay.style.display = 'flex';
+                                        messageText.innerHTML = `The perfect item has arrived. <br><br> <a href="https://buiproject.notion.site/projects-by-bui" target="_blank" class="cta-button">Want to know more?</a>`;
+                                    }, 2000);
+                                }, 4000);
+                            }
+                            break;
                     }
-                    break;
+                    return; // Exit after one click is processed
                 }
             }
         }
         
+        function restartGame() {
+            messageOverlay.style.display = 'none';
+            userChoices = { product: null, manufacturer: null };
+            gameState = 'CHOOSE_PRODUCT';
+            resetAnimation();
+        }
+
         // --- Initialization ---
         canvas.addEventListener('click', handleClick);
+        canvas.addEventListener('mousemove', handleMouseMove);
         messageOverlay.addEventListener('click', (e) => {
-            // Reset game when clicking the overlay, but not the button
             if (e.target.tagName !== 'A') {
-                messageOverlay.style.display = 'none';
-                initializeBoxes();
-                requestAnimationFrame(gameLoop);
+                restartGame();
             }
         });
-
-        initializeBoxes();
+        
         gameLoop();
     </script>
 
