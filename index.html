@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bui Project - Package Picker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .game-container {
+            border: 8px solid #444;
+            border-radius: 15px;
+            background-color: #000;
+            padding: 20px;
+            box-shadow: 0 0 25px #ff00ff, 0 0 15px #00ffff inset;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #ffff00;
+            text-shadow: 3px 3px 0px #ff00ff;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        canvas {
+            background-color: #0d0d0d;
+            display: block;
+            border-radius: 5px;
+            border: 2px solid #333;
+            cursor: pointer;
+        }
+
+        .message-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .final-message {
+            font-size: 1.5rem;
+            color: #00ff00;
+            line-height: 1.6;
+            text-shadow: 2px 2px 0px #1a1a1a;
+            max-width: 90%;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: #ffff00;
+            color: #1a1a1a;
+            padding: 15px 30px;
+            margin-top: 30px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 1.25rem;
+            text-shadow: none;
+            border: 3px solid #1a1a1a;
+            box-shadow: 5px 5px 0px #ff00ff;
+            transition: all 0.1s linear;
+        }
+
+        .cta-button:active {
+            transform: translate(5px, 5px);
+            box-shadow: 0 0 0 #ff00ff;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>PACKAGE PICKER</h1>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="messageOverlay" class="message-overlay">
+            <div id="messageText" class="final-message"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageOverlay = document.getElementById('messageOverlay');
+        const messageText = document.getElementById('messageText');
+
+        const BOX_COLOR = '#8B4513';
+        const BOX_TAPE_COLOR = '#A0522D';
+        const BUI_BOX_COLOR = '#A55D35';
+
+        // --- Game State ---
+        let boxes = [];
+        let revealedItem = null;
+        let buiRevealed = false;
+
+        // --- Game Objects ---
+        const clothingItems = [
+            { name: 'Pants', draw: drawPants },
+            { name: 'Gloves', draw: drawGloves },
+            { name: 'Hat', draw: drawHat },
+            { name: 'Socks', draw: drawSocks },
+        ];
+        
+        const buiProjectItem = {
+            name: 'Golden Shirt',
+            draw: drawGoldenShirt
+        };
+
+        // --- Drawing Functions ---
+        function drawBox(box) {
+            // Main box
+            ctx.fillStyle = box.isBui ? BUI_BOX_COLOR : BOX_COLOR;
+            ctx.fillRect(box.x, box.y, box.width, box.height);
+
+            // Shading for 3D effect
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.moveTo(box.x, box.y + box.height);
+            ctx.lineTo(box.x + 15, box.y + box.height - 15);
+            ctx.lineTo(box.x + box.width + 15, box.y + box.height - 15);
+            ctx.lineTo(box.x + box.width, box.y + box.height);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(box.x + box.width, box.y);
+            ctx.lineTo(box.x + box.width + 15, box.y - 15);
+            ctx.lineTo(box.x + box.width + 15, box.y + box.height - 15);
+            ctx.lineTo(box.x + box.width, box.y + box.height);
+            ctx.fill();
+
+            // Top lid
+            ctx.fillStyle = box.isBui ? '#b47b5a' : '#9c5a2c';
+            ctx.beginPath();
+            ctx.moveTo(box.x, box.y);
+            ctx.lineTo(box.x + 15, box.y - 15);
+            ctx.lineTo(box.x + box.width + 15, box.y - 15);
+            ctx.lineTo(box.x + box.width, box.y);
+            ctx.fill();
+
+            // Tape
+            ctx.fillStyle = BOX_TAPE_COLOR;
+            ctx.fillRect(box.x + box.width / 2 - 10, box.y, 20, box.height);
+            ctx.fillRect(box.x, box.y + box.height / 2 - 10, box.width, 20);
+            
+            // Tape on top
+            ctx.beginPath();
+            ctx.moveTo(box.x + box.width/2 - 5, box.y);
+            ctx.lineTo(box.x + 15 + box.width/2 - 5, box.y - 15);
+            ctx.lineTo(box.x + 15 + box.width/2 + 5, box.y - 15);
+            ctx.lineTo(box.x + box.width/2 + 5, box.y);
+            ctx.fill();
+
+
+            if (box.isBui) {
+                ctx.save();
+                ctx.font = "bold 24px Arial, sans-serif"; // Helvetica fallback
+                ctx.fillStyle = '#FFFFFF';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 4;
+                ctx.fillText("BUI PROJECT", box.x + box.width / 2, box.y + box.height / 2 + 8);
+                ctx.restore();
+            }
+        }
+
+        function drawPants(x, y) {
+            ctx.fillStyle = '#3366ff';
+            ctx.fillRect(x, y, 40, 80);
+            ctx.fillRect(x + 50, y, 40, 80);
+            ctx.fillRect(x, y - 10, 90, 20);
+        }
+
+        function drawGloves(x, y) {
+            ctx.fillStyle = '#cccccc';
+            ctx.fillRect(x, y, 40, 50);
+            ctx.fillRect(x + 50, y, 40, 50);
+            for (let i = 0; i < 4; i++) {
+                ctx.fillRect(x + i * 10, y - 15, 8, 15);
+                ctx.fillRect(x + 50 + i * 10, y - 15, 8, 15);
+            }
+        }
+
+        function drawHat(x, y) {
+            ctx.fillStyle = '#ff6600';
+            ctx.fillRect(x - 10, y + 40, 100, 15);
+            ctx.fillRect(x + 10, y, 60, 40);
+        }
+        
+        function drawSocks(x, y) {
+            ctx.fillStyle = '#22aa22';
+            ctx.fillRect(x, y, 30, 60);
+            ctx.fillRect(x + 40, y, 30, 60);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x, y, 30, 10);
+            ctx.fillRect(x + 40, y, 30, 10);
+        }
+
+        function drawGoldenShirt(x, y) {
+            ctx.fillStyle = '#FFD700';
+            // body
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 100, y);
+            ctx.lineTo(x + 80, y + 120);
+            ctx.lineTo(x + 20, y + 120);
+            ctx.closePath();
+            ctx.fill();
+
+            // sleeves
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - 40, y + 30);
+            ctx.lineTo(x - 20, y + 50);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(x + 100, y);
+            ctx.lineTo(x + 140, y + 30);
+            ctx.lineTo(x + 120, y + 50);
+            ctx.closePath();
+            ctx.fill();
+
+            // Number 1
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 80px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 10;
+            ctx.fillText('1', x + 50, y + 90);
+        }
+
+        function drawRevealedItem() {
+            if (revealedItem) {
+                const item = revealedItem.item;
+                const box = revealedItem.box;
+                const itemX = box.x + (box.width / 2) - 50;
+                const itemY = box.y - 120;
+                
+                // Clear area above box
+                ctx.clearRect(box.x - 50, box.y - 160, box.width + 100, 150);
+
+                item.draw(itemX, itemY);
+                ctx.fillStyle = '#fff';
+                ctx.font = '16px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText(item.name, box.x + box.width / 2, itemY + 140);
+            }
+        }
+        
+        function drawBuiProjectReveal() {
+             const box = boxes.find(b => b.isBui);
+             if(!box) return;
+
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             
+             buiProjectItem.draw(canvas.width / 2 - 50, canvas.height / 2 - 60);
+
+             setTimeout(() => {
+                messageOverlay.style.display = 'flex';
+                messageText.innerHTML = `Tired of shitty samples and bad connection with your manufacturer? <br><br> <a href="mailto:leonard@buiproject.com" class="cta-button">Try Bui Project</a>`;
+             }, 1000); // Wait a second for dramatic effect
+        }
+
+        // --- Game Logic ---
+        function initializeBoxes() {
+            boxes = [];
+            revealedItem = null;
+            buiRevealed = false;
+            
+            const boxWidth = 150;
+            const boxHeight = 120;
+            const positions = [
+                { x: 100, y: 150 }, { x: 325, y: 150 }, { x: 550, y: 150 },
+                { x: 100, y: 400 }, { x: 325, y: 400 }, { x: 550, y: 400 }
+            ];
+            
+            // Shuffle positions to randomize BUI box location
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]];
+            }
+
+            for (let i = 0; i < 6; i++) {
+                boxes.push({
+                    x: positions[i].x,
+                    y: positions[i].y,
+                    width: boxWidth,
+                    height: boxHeight,
+                    isBui: i === 0, // The first shuffled position gets the BUI box
+                    item: clothingItems[Math.floor(Math.random() * clothingItems.length)]
+                });
+            }
+        }
+
+        function gameLoop() {
+            if (buiRevealed) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            boxes.forEach(box => {
+                drawBox(box);
+            });
+
+            drawRevealedItem();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleClick(event) {
+            if (buiRevealed) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            for (const box of boxes) {
+                if (
+                    mouseX >= box.x && mouseX <= box.x + box.width &&
+                    mouseY >= box.y && mouseY <= box.y + box.height
+                ) {
+                    if (box.isBui) {
+                        buiRevealed = true;
+                        drawBuiProjectReveal();
+                    } else {
+                        revealedItem = { box, item: box.item };
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // --- Initialization ---
+        canvas.addEventListener('click', handleClick);
+        messageOverlay.addEventListener('click', (e) => {
+            // Reset game when clicking the overlay, but not the button
+            if (e.target.tagName !== 'A') {
+                messageOverlay.style.display = 'none';
+                initializeBoxes();
+                requestAnimationFrame(gameLoop);
+            }
+        });
+
+        initializeBoxes();
+        gameLoop();
+    </script>
+
+</body>
+</html>
+
