@@ -129,6 +129,14 @@
             { name: 'Hat', draw: drawHat },
             { name: 'Socks', draw: drawSocks },
         ];
+
+        const flaws = [
+            { type: 'size', text: 'Wrong Size!' },
+            { type: 'smell', text: 'Smells of chemicals!' },
+            { type: 'fuzz', text: 'fuzzies all over!' },
+            { type: 'color', text: 'Wrong color!' },
+            { type: 'quality', text: 'Bad Quality!' }
+        ];
         
         const buiProjectItem = {
             name: 'Golden Shirt',
@@ -192,36 +200,175 @@
             }
         }
 
-        function drawPants(x, y) {
-            ctx.fillStyle = '#3366ff';
-            ctx.fillRect(x, y, 40, 80);
-            ctx.fillRect(x + 50, y, 40, 80);
-            ctx.fillRect(x, y - 10, 90, 20);
+        function drawSmellLines(x, y) {
+            ctx.strokeStyle = '#aaffaa';
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = 0.8;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                const startX = x + 30 + i * 15;
+                const startY = y + 20;
+                ctx.moveTo(startX, startY);
+                ctx.quadraticCurveTo(startX - 5, startY - 10, startX, startY - 20);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
         }
 
-        function drawGloves(x, y) {
-            ctx.fillStyle = '#cccccc';
-            ctx.fillRect(x, y, 40, 50);
-            ctx.fillRect(x + 50, y, 40, 50);
-            for (let i = 0; i < 4; i++) {
-                ctx.fillRect(x + i * 10, y - 15, 8, 15);
-                ctx.fillRect(x + 50 + i * 10, y - 15, 8, 15);
+        function drawPants(x, y, flaw) {
+            let color = '#3366ff';
+            if (flaw && flaw.type === 'color') color = '#FF69B4'; // Hot pink
+
+            ctx.fillStyle = color;
+
+            let scale = 1;
+            if (flaw && flaw.type === 'size') scale = 0.6;
+            
+            ctx.save();
+            ctx.translate(x, y);
+            if (scale !== 1) {
+                ctx.translate(45, 40); // center the scaled item
+                ctx.scale(scale, scale);
+                ctx.translate(-45, -40);
+            }
+            ctx.fillRect(0, 0, 40, 80);
+            ctx.fillRect(50, 0, 40, 80);
+            ctx.fillRect(0, -10, 90, 20);
+            ctx.restore();
+
+            if (flaw && flaw.type === 'quality') {
+                ctx.fillStyle = '#0d0d0d'; // bg color for hole
+                ctx.beginPath();
+                ctx.arc(x + 20, y + 40, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (flaw && flaw.type === 'fuzz') {
+                for (let i = 0; i < 15; i++) {
+                    ctx.fillStyle = '#ddd';
+                    ctx.fillRect(x + (Math.random() * 85), y + (Math.random() * 75), 2, 2);
+                }
+            }
+            if (flaw && flaw.type === 'smell') {
+                drawSmellLines(x, y);
             }
         }
 
-        function drawHat(x, y) {
-            ctx.fillStyle = '#ff6600';
-            ctx.fillRect(x - 10, y + 40, 100, 15);
-            ctx.fillRect(x + 10, y, 60, 40);
+        function drawGloves(x, y, flaw) {
+            let color = '#cccccc';
+            if (flaw && flaw.type === 'color') color = '#7CFC00'; // Lawn Green
+
+            ctx.fillStyle = color;
+
+            let scale = 1;
+            if (flaw && flaw.type === 'size') scale = 1.4;
+
+            ctx.save();
+            ctx.translate(x, y);
+            if (scale !== 1) {
+                ctx.translate(45, 30);
+                ctx.scale(scale, scale);
+                ctx.translate(-45, -30);
+            }
+            ctx.fillRect(0, 0, 40, 50);
+            ctx.fillRect(50, 0, 40, 50);
+            for (let i = 0; i < 4; i++) {
+                ctx.fillRect(i * 10, -15, 8, 15);
+                ctx.fillRect(50 + i * 10, -15, 8, 15);
+            }
+            ctx.restore();
+
+            if (flaw && flaw.type === 'quality') {
+                ctx.fillStyle = '#0d0d0d';
+                ctx.fillRect(x + 60, y + 10, 20, 5);
+            }
+            if (flaw && flaw.type === 'fuzz') {
+                 for (let i = 0; i < 15; i++) {
+                    ctx.fillStyle = '#555';
+                    ctx.fillRect(x + (Math.random() * 85), y + (Math.random() * 45), 2, 2);
+                }
+            }
+            if (flaw && flaw.type === 'smell') {
+                drawSmellLines(x, y);
+            }
+        }
+
+        function drawHat(x, y, flaw) {
+            let color = '#ff6600';
+            if (flaw && flaw.type === 'color') color = '#9400D3'; // Dark Violet
+            
+            ctx.fillStyle = color;
+
+            let scale = 1;
+            if (flaw && flaw.type === 'size') scale = 0.7;
+
+            ctx.save();
+            ctx.translate(x, y);
+             if (scale !== 1) {
+                ctx.translate(40, 25);
+                ctx.scale(scale, scale);
+                ctx.translate(-40, -25);
+            }
+            ctx.fillRect(-10, 40, 100, 15);
+            ctx.fillRect(10, 0, 60, 40);
+            ctx.restore();
+
+            if (flaw && flaw.type === 'quality') {
+                 ctx.strokeStyle = '#000';
+                 ctx.lineWidth = 2;
+                 ctx.beginPath();
+                 ctx.moveTo(x + 20, y);
+                 ctx.lineTo(x + 50, y + 10);
+                 ctx.stroke();
+            }
+             if (flaw && flaw.type === 'fuzz') {
+                 for (let i = 0; i < 15; i++) {
+                    ctx.fillStyle = '#ddd';
+                    ctx.fillRect(x - 5 + (Math.random() * 90), y + (Math.random() * 50), 2, 2);
+                }
+            }
+            if (flaw && flaw.type === 'smell') {
+                drawSmellLines(x, y);
+            }
         }
         
-        function drawSocks(x, y) {
-            ctx.fillStyle = '#22aa22';
-            ctx.fillRect(x, y, 30, 60);
-            ctx.fillRect(x + 40, y, 30, 60);
+        function drawSocks(x, y, flaw) {
+            let color = '#22aa22';
+            if (flaw && flaw.type === 'color') color = '#FF8C00'; // Dark Orange
+
+            ctx.fillStyle = color;
+
+            let scale = 1;
+            if (flaw && flaw.type === 'size') scale = 1.3;
+
+            ctx.save();
+            ctx.translate(x,y);
+            if (scale !== 1) {
+                ctx.translate(35, 30);
+                ctx.scale(scale, scale);
+                ctx.translate(-35, -30);
+            }
+            ctx.fillRect(0, 0, 30, 60);
+            ctx.fillRect(40, 0, 30, 60);
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(x, y, 30, 10);
-            ctx.fillRect(x + 40, y, 30, 10);
+            ctx.fillRect(0, 0, 30, 10);
+            ctx.fillRect(40, 0, 30, 10);
+            ctx.restore();
+
+            if (flaw && flaw.type === 'quality') {
+                ctx.fillStyle = '#0d0d0d';
+                ctx.beginPath();
+                ctx.arc(x + 15, y + 40, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+             if (flaw && flaw.type === 'fuzz') {
+                 for (let i = 0; i < 15; i++) {
+                    ctx.fillStyle = '#ddd';
+                    ctx.fillRect(x + (Math.random() * 65), y + 10 + (Math.random() * 45), 2, 2);
+                }
+            }
+             if (flaw && flaw.type === 'smell') {
+                drawSmellLines(x, y);
+            }
         }
 
         function drawGoldenShirt(x, y) {
@@ -267,13 +414,19 @@
                 const itemY = box.y - 120;
                 
                 // Clear area above box
-                ctx.clearRect(box.x - 50, box.y - 160, box.width + 100, 150);
+                ctx.clearRect(box.x - 50, box.y - 160, box.width + 100, 180);
 
-                item.draw(itemX, itemY);
+                item.draw(itemX, itemY, item.flaw);
                 ctx.fillStyle = '#fff';
                 ctx.font = '16px "Press Start 2P"';
                 ctx.textAlign = 'center';
                 ctx.fillText(item.name, box.x + box.width / 2, itemY + 140);
+
+                // Draw flaw text
+                if (item.flaw) {
+                    ctx.fillStyle = '#ff4d4d';
+                    ctx.fillText(item.flaw.text, box.x + box.width / 2, itemY - 20);
+                }
             }
         }
         
@@ -283,12 +436,21 @@
 
              ctx.clearRect(0, 0, canvas.width, canvas.height);
              
-             buiProjectItem.draw(canvas.width / 2 - 50, canvas.height / 2 - 60);
+             buiProjectItem.draw(canvas.width / 2 - 50, canvas.height / 2 - 80);
+
+             // Add "perfect" text
+             ctx.fillStyle = '#00ff00';
+             ctx.font = '20px "Press Start 2P"';
+             ctx.textAlign = 'center';
+             ctx.shadowColor = 'black';
+             ctx.shadowBlur = 4;
+             ctx.fillText("perfect in every way", canvas.width / 2, canvas.height / 2 + 80);
+             ctx.shadowBlur = 0;
 
              setTimeout(() => {
                 messageOverlay.style.display = 'flex';
                 messageText.innerHTML = `Tired of shitty samples and bad connection with your manufacturer? <br><br> <a href="mailto:leonard@buiproject.com" class="cta-button">Try Bui Project</a>`;
-             }, 1000); // Wait a second for dramatic effect
+             }, 2000); // Wait a second for dramatic effect
         }
 
         // --- Game Logic ---
@@ -311,13 +473,24 @@
             }
 
             for (let i = 0; i < 6; i++) {
+                const isBui = i === 0;
+                let item;
+
+                if (isBui) {
+                    item = { ...buiProjectItem };
+                } else {
+                    const baseItem = clothingItems[Math.floor(Math.random() * clothingItems.length)];
+                    const randomFlaw = flaws[Math.floor(Math.random() * flaws.length)];
+                    item = { ...baseItem, flaw: randomFlaw };
+                }
+
                 boxes.push({
                     x: positions[i].x,
                     y: positions[i].y,
                     width: boxWidth,
                     height: boxHeight,
-                    isBui: i === 0, // The first shuffled position gets the BUI box
-                    item: clothingItems[Math.floor(Math.random() * clothingItems.length)]
+                    isBui: isBui, 
+                    item: item
                 });
             }
         }
@@ -375,4 +548,5 @@
 
 </body>
 </html>
+
 
